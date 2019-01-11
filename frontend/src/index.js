@@ -25,9 +25,19 @@ axios.interceptors.response.use((response) => {
     }
 });
 
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    e.prompt();
+});
+
 ReactDOM.render(<App />, document.getElementById('root'));
+
+serviceWorker.register({
+    skipWaiting: true,
+    clientsClaim: true
+});
 
 // If you want your app to work offline and load faster, you can change
 // unregister() to register() below. Note this comes with some pitfalls.
 // Learn more about service workers: http://bit.ly/CRA-PWA
-serviceWorker.unregister();
+serviceWorker.register();
