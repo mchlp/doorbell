@@ -1,8 +1,10 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import config from './config.json';
-import { exec } from 'child_process';
+import childProcess from 'child_process';
 import crypto from 'crypto';
+
+const exec = childProcess.exec;
 
 const app = express();
 const tokens = [];
