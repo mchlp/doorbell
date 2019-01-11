@@ -61,7 +61,7 @@ app.post('/api/login', async function (req, res, next) {
 });
 
 app.post('/api/doorbell', isAuthenticated, function (req, res, next) {
-    exec('beep', (err, stdout, stderr) => {
+    exec('./actions/ring.sh', (err, stdout, stderr) => {
         if (err) {
             next(err);
         } else {
@@ -77,7 +77,23 @@ app.post('/api/doorbell', isAuthenticated, function (req, res, next) {
 });
 
 app.post('/api/cdtray', isAuthenticated, function (req, res, next) {
-    exec('eject; sleep 1; eject -t', (err, stdout, stderr) => {
+    exec('./actions/tray.sh', (err, stdout, stderr) => {
+        if (err) {
+            next(err);
+        } else {
+            if (stderr) {
+                next(err);
+            } else {
+                res.json({
+                    'status': 'success'
+                });
+            }
+        }
+    });
+});
+
+app.post('/api/alarm', isAuthenticated, function (req, res, next) {
+    exec('./actions/alarm.sh', (err, stdout, stderr) => {
         if (err) {
             next(err);
         } else {

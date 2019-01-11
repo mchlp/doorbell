@@ -8,7 +8,8 @@ export default class HomePage extends Component {
         super(props);
         this.state = {
             doorbell: false,
-            tray: false
+            tray: false,
+            alarm: false
         };
         this.handleDoorbell = this.handleDoorbell.bind(this);
         this.handleCDTray = this.handleCDTray.bind(this);
@@ -32,6 +33,17 @@ export default class HomePage extends Component {
             await axios.post('/api/cdtray');
             this.setState({
                 tray: false
+            });
+        });
+    }
+
+    async handleAlarm() {
+        this.setState({
+            alarm: true
+        }, async () => {
+            await axios.post('/api/alarm');
+            this.setState({
+                doorbell: false
             });
         });
     }
@@ -60,6 +72,17 @@ export default class HomePage extends Component {
                                 </div> :
                                 <div>
                                     CD Tray
+                                </div>
+                            }
+                        </button>
+                        <button className="btn btn-danger btn-lg btn-block" onClick={this.handleCDTray}>
+                            {this.state.alarm ?
+                                <div>
+                                    <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
+                                    Alarm
+                                </div> :
+                                <div>
+                                    Alarm
                                 </div>
                             }
                         </button>
