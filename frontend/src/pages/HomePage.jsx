@@ -9,10 +9,13 @@ export default class HomePage extends Component {
         this.state = {
             doorbell: false,
             tray: false,
-            alarm: false
+            alarm: false,
+            notify: false
         };
         this.handleDoorbell = this.handleDoorbell.bind(this);
         this.handleCDTray = this.handleCDTray.bind(this);
+        this.handleAlarm = this.handleAlarm.bind(this);
+        this.handleNotify = this.handleNotify.bind(this);
     }
 
     async handleDoorbell() {
@@ -43,7 +46,18 @@ export default class HomePage extends Component {
         }, async () => {
             await axios.post('/api/alarm');
             this.setState({
-                doorbell: false
+                alarm: false
+            });
+        });
+    }
+
+    async handleNotify() {
+        this.setState({
+            notify: true
+        }, async () => {
+            await axios.post('/api/notify');
+            this.setState({
+                notify: false
             });
         });
     }
@@ -53,7 +67,7 @@ export default class HomePage extends Component {
             <div className="container mt-3">
                 {localStorage.token ?
                     <div>
-                        <button className="btn btn-primary btn-lg btn-block" onClick={this.handleDoorbell}>
+                        <button className="btn btn-primary btn-lg btn-block" onClick={this.handleDoorbell} disabled={this.state.doorbell}>
                             {this.state.doorbell ?
                                 <div>
                                     <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
@@ -64,7 +78,7 @@ export default class HomePage extends Component {
                                 </div>
                             }
                         </button>
-                        <button className="btn btn-primary btn-lg btn-block" onClick={this.handleCDTray}>
+                        <button className="btn btn-primary btn-lg btn-block" onClick={this.handleCDTray} disabled={this.state.tray}>
                             {this.state.tray ?
                                 <div>
                                     <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
@@ -75,7 +89,7 @@ export default class HomePage extends Component {
                                 </div>
                             }
                         </button>
-                        <button className="btn btn-danger btn-lg btn-block" onClick={this.handleCDTray}>
+                        <button className="btn btn-danger btn-lg btn-block" onClick={this.handleAlarm} disabled={this.state.alarm}>
                             {this.state.alarm ?
                                 <div>
                                     <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
@@ -83,6 +97,17 @@ export default class HomePage extends Component {
                                 </div> :
                                 <div>
                                     Alarm
+                                </div>
+                            }
+                        </button>
+                        <button className="btn btn-danger btn-lg btn-block" onClick={this.handleNotify} disabled={this.state.notify}>
+                            {this.state.notify ?
+                                <div>
+                                    <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
+                                    Notify
+                                </div> :
+                                <div>
+                                    Notify
                                 </div>
                             }
                         </button>
