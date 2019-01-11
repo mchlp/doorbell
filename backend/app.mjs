@@ -110,6 +110,22 @@ app.post('/api/alarm', isAuthenticated, function (req, res, next) {
     });
 });
 
+app.post('/api/notify', isAuthenticated, function (req, res, next) {
+    exec('./actions/notify.sh', (err, stdout, stderr) => {
+        if (err) {
+            next(err);
+        } else {
+            if (stderr) {
+                next(err);
+            } else {
+                res.json({
+                    'status': 'success'
+                });
+            }
+        }
+    });
+});
+
 app.use(function (req, res, next) {
     res.status(404);
     res.end('404');
