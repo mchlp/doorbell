@@ -10,6 +10,8 @@ export default class HomePage extends Component {
             doorbell: false,
             tray: false
         };
+        this.handleDoorbell = this.handleDoorbell.bind(this);
+        this.handleCDTray = this.handleCDTray.bind(this);
     }
 
     async handleDoorbell() {
