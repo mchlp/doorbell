@@ -11,6 +11,8 @@ const tokens = {};
 
 const state = {
     occupiedCheck: {
+        lastChecked: null,
+        lastCheckedStatus: null,
         checkInterval: null,
         startTime: null,
         resArray: [],
@@ -53,6 +55,10 @@ function isAuthenticated(req, res, next) {
 }
 
 function startCheckOccupied(res) {
+    if (Date.now() < state.occupiedCheck.lastChecked + (config['check-occupied-status-expiry'] * 1000)) {
+        res.json({ 'occupied': state.occupiedCheck.lastCheckedStatus });
+        return;
+    }
     state.occupiedCheck.resArray.push(res);
     if (!state.occupiedCheck.checking) {
         exec('./actions/notify.sh', (err, stdout, stderr) => {
@@ -77,7 +83,6 @@ function startCheckOccupied(res) {
                 }
             }
         });
-
     }
 }
 
@@ -95,6 +100,8 @@ function checkOccupied() {
                     for (const res of state.occupiedCheck.resArray) {
                         res.json({ 'occupied': true });
                     }
+                    state.occupiedCheck.lastChecked = Date.now();
+                    state.occupiedCheck.lastCheckedStatus = true;
                     state.occupiedCheck.resArray = [];
                     state.occupiedCheck.checking = false;
                 }
@@ -112,6 +119,8 @@ function checkOccupied() {
                 for (const res of state.occupiedCheck.resArray) {
                     res.json({ 'occupied': false });
                 }
+                state.occupiedCheck.lastChecked = Date.now();
+                state.occupiedCheck.lastCheckedStatus = false;
                 state.occupiedCheck.checking = false;
                 state.occupiedCheck.resArray = [];
             }
