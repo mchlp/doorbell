@@ -13,9 +13,9 @@ int main(int argc,char **argv) {
 	}
 
 	if (ioctl(cdrom,CDROM_DRIVE_STATUS) == CDS_TRAY_OPEN) {
-		printf("open\n");
+		printf("open");
 	} else {
-		printf("close\n");
+		printf("close");
 	}
 
 	close(cdrom);

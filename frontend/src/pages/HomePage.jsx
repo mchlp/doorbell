@@ -2,20 +2,25 @@ import React, { Component } from 'react';
 import LoginPage from './LoginPage';
 import axios from 'axios';
 
+const OccupiedStatus = {
+    UNKNOWN: 0,
+    OCCUPIED: 1,
+    UNOCCUPIED: 2
+};
+
 export default class HomePage extends Component {
 
     constructor(props) {
         super(props);
         this.state = {
+            occupiedStatus: OccupiedStatus.UNKNOWN,
             doorbell: false,
-            tray: false,
+            check: false,
             alarm: false,
-            notify: false
         };
         this.handleDoorbell = this.handleDoorbell.bind(this);
-        this.handleCDTray = this.handleCDTray.bind(this);
         this.handleAlarm = this.handleAlarm.bind(this);
-        this.handleNotify = this.handleNotify.bind(this);
+        this.handleCheck = this.handleCheck.bind(this);
     }
 
     async handleDoorbell() {
@@ -29,15 +34,25 @@ export default class HomePage extends Component {
         });
     }
 
-    async handleCDTray() {
-        this.setState({
-            tray: true
-        }, async () => {
-            await axios.post('/api/cdtray');
+    async handleCheck() {
+        if (this.state.occupiedStatus === OccupiedStatus.UNKNOWN) {
             this.setState({
-                tray: false
+                check: true
+            }, async () => {
+                const res = await axios.post('/api/check');
+                if (res) {
+                    this.setState({
+                        occupiedStatus: res.data.occupied ? OccupiedStatus.OCCUPIED : OccupiedStatus.UNOCCUPIED,
+                        check: false,
+                    });
+                }
+                setTimeout(() => {
+                    this.setState({
+                        occupiedStatus: OccupiedStatus.UNKNOWN
+                    });
+                }, 3000);
             });
-        });
+        }
     }
 
     async handleAlarm() {
@@ -47,17 +62,6 @@ export default class HomePage extends Component {
             await axios.post('/api/alarm');
             this.setState({
                 alarm: false
-            });
-        });
-    }
-
-    async handleNotify() {
-        this.setState({
-            notify: true
-        }, async () => {
-            await axios.post('/api/notify');
-            this.setState({
-                notify: false
             });
         });
     }
@@ -78,15 +82,25 @@ export default class HomePage extends Component {
                                 </div>
                             }
                         </button>
-                        <button className="btn btn-primary btn-lg btn-block" onClick={this.handleCDTray} disabled={this.state.tray}>
-                            {this.state.tray ?
-                                <div>
-                                    <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
-                                    CD Tray
-                                </div> :
-                                <div>
-                                    CD Tray
-                                </div>
+                        <button className={'btn btn-lg btn-block' + (this.state.occupiedStatus === OccupiedStatus.UNKNOWN ? ' btn-primary' : this.state.occupiedStatus === OccupiedStatus.OCCUPIED ? ' btn-success' : ' btn-warning')} onClick={this.handleCheck} disabled={this.state.check}>
+                            {this.state.occupiedStatus === OccupiedStatus.UNKNOWN ?
+                                this.state.check ?
+                                    <div>
+                                        <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
+                                        Check Occupancy
+                                    </div> :
+                                    <div>
+                                        Check Occupancy
+                                    </div>
+                                :
+                                this.state.occupiedStatus === OccupiedStatus.OCCUPIED ?
+                                    <div>
+                                        Occupied
+                                    </div>
+                                    :
+                                    <div>
+                                        Unoccupied
+                                    </div>
                             }
                         </button>
                         <button className="btn btn-danger btn-lg btn-block" onClick={this.handleAlarm} disabled={this.state.alarm}>
@@ -97,17 +111,6 @@ export default class HomePage extends Component {
                                 </div> :
                                 <div>
                                     Alarm
-                                </div>
-                            }
-                        </button>
-                        <button className="btn btn-danger btn-lg btn-block" onClick={this.handleNotify} disabled={this.state.notify}>
-                            {this.state.notify ?
-                                <div>
-                                    <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
-                                    Notify
-                                </div> :
-                                <div>
-                                    Notify
                                 </div>
                             }
                         </button>
