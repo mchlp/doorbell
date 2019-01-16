@@ -96,6 +96,7 @@ function checkOccupied() {
                             res.json({ 'occupied': true });
                         }
                         state.occupiedCheck.resArray = [];
+                        state.occupiedCheck.checking = false;
                     }
                 }
             }
@@ -114,6 +115,7 @@ function checkOccupied() {
         for (const res of state.occupiedCheck.resArray) {
             res.json({ 'occupied': false });
         }
+        state.occupiedCheck.checking = false;
         state.occupiedCheck.resArray = [];
     }
 }
