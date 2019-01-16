@@ -109,14 +109,15 @@ function checkOccupied() {
             } else {
                 if (stderr) {
                     console.error(err);
+                } else {
+                    for (const res of state.occupiedCheck.resArray) {
+                        res.json({ 'occupied': false });
+                    }
+                    state.occupiedCheck.checking = false;
+                    state.occupiedCheck.resArray = [];
                 }
             }
         });
-        for (const res of state.occupiedCheck.resArray) {
-            res.json({ 'occupied': false });
-        }
-        state.occupiedCheck.checking = false;
-        state.occupiedCheck.resArray = [];
     }
 }
 
