@@ -71,7 +71,7 @@ async function startCheckOccupied(res) {
                 stopCheckOccupied(true);
                 return;
             }
-            exec('espeak "If you hear this, close the CD Drive." -s 160');
+            exec('espeak "If you hear this, close the CD Tray." -s 160');
             state.occupiedCheck.checkInterval = setInterval(checkOccupied, 500);
         });
     }
@@ -125,6 +125,13 @@ app.post('/api/login', async function (req, res, next) {
 app.post('/api/doorbell', isAuthenticated, async function (req, res, next) {
     await exec('./actions/ring.sh');
     await exec('espeak "Someone is at the door." -s 160');
+    res.json({
+        'status': 'success'
+    });
+});
+
+app.post('/api/broadcast', isAuthenticated, async function (req, res, next) {
+    await exec('espeak "' + req.body.message + '" -s 160');
     res.json({
         'status': 'success'
     });

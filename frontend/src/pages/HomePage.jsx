@@ -17,10 +17,12 @@ export default class HomePage extends Component {
             doorbell: false,
             check: false,
             alarm: false,
+            broadcast: false,
         };
         this.handleDoorbell = this.handleDoorbell.bind(this);
         this.handleAlarm = this.handleAlarm.bind(this);
         this.handleCheck = this.handleCheck.bind(this);
+        this.handleBroadcast = this.handleBroadcast.bind(this);
     }
 
     async handleDoorbell() {
@@ -66,6 +68,21 @@ export default class HomePage extends Component {
         });
     }
 
+    async handleBroadcast(e) {
+        e.preventDefault();
+        this.setState({
+            broadcast: true
+        }, async () => {
+            await axios.post('/api/broadcast', {
+                message: document.getElementById('broadcast-message').value
+            });
+            this.setState({
+                broadcast: false
+            });
+            document.getElementById('broadcast-message').value = '';
+        });
+    }
+
     render() {
         return (
             <div className="container mt-3">
@@ -103,6 +120,24 @@ export default class HomePage extends Component {
                                     </div>
                             }
                         </button>
+                        <form onSubmit={this.handleBroadcast}>
+                            <div className="input-group my-3">
+                                <input type="text" id="broadcast-message" className="form-control" placeholder="Enter message to broadcast" required />
+                                <div className="input-group-append">
+                                    <button className="btn btn-primary" type="submit" disabled={this.state.broadcast}>
+                                        {this.state.broadcast ?
+                                            <div>
+                                                <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
+                                                Broadcast
+                                            </div> :
+                                            <div>
+                                                Broadcast
+                                            </div>
+                                        }
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
                         <button className="btn btn-danger btn-lg btn-block" onClick={this.handleAlarm} disabled={this.state.alarm}>
                             {this.state.alarm ?
                                 <div>
