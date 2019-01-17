@@ -61,22 +61,22 @@ async function startCheckOccupied(res) {
         res.json({ 'occupied': state.occupiedCheck.lastCheckedStatus });
         return;
     }
-    if (!state.inUse) {
+    if (!state.inUse || state.inUse === 'check') {
         state.occupiedCheck.resArray.push(res);
         if (!state.occupiedCheck.checking) {
-            state.inUse = true;
+            state.inUse = 'check';
             state.occupiedCheck.startTime = Date.now();
             state.occupiedCheck.checking = true;
             exec('./actions/tray-open.sh');
             exec('./actions/notify.sh').then(async () => {
                 const trayStatus = await checkTrayStatus();
                 if (trayStatus === 'close') {
-                    state.inUse = false;
+                    state.inUse = null;
                     stopCheckOccupied(true);
                     return;
                 }
                 exec('espeak "If you hear this, close the CD Tray." -s 160').then(() => {
-                    state.inUse = false;
+                    state.inUse = null;
                 });
                 state.occupiedCheck.checkInterval = setInterval(checkOccupied, 500);
             });
@@ -135,10 +135,10 @@ app.post('/api/login', async function (req, res, next) {
 
 app.post('/api/doorbell', isAuthenticated, async function (req, res, next) {
     if (!state.inUse) {
-        state.inUse = true;
+        state.inUse = 'doorbell';
         await exec('./actions/ring.sh');
         await exec('espeak "Someone is at the door." -s 160');
-        state.inUse = false;
+        state.inUse = null;
         res.json({
             'status': 'success'
         });
@@ -151,9 +151,9 @@ app.post('/api/doorbell', isAuthenticated, async function (req, res, next) {
 
 app.post('/api/broadcast', isAuthenticated, async function (req, res, next) {
     if (!state.inUse) {
-        state.inUse = true;
+        state.inUse = 'broadcast';
         await exec('espeak "' + req.body.message + '" -s 160');
-        state.inUse = false;
+        state.inUse = null;
         res.json({
             'status': 'success'
         });
@@ -170,9 +170,9 @@ app.post('/api/check', isAuthenticated, function (req, res, next) {
 
 app.post('/api/alarm', isAuthenticated, async function (req, res, next) {
     if (!state.inUse) {
-        state.inUse = true;
+        state.inUse = 'alarm';
         await exec('./actions/alarm.sh');
-        state.inUse = false;
+        state.inUse = null;
         res.json({
             'status': 'success'
         });
