@@ -61,9 +61,9 @@ async function startCheckOccupied(res) {
         res.json({ 'occupied': state.occupiedCheck.lastCheckedStatus });
         return;
     }
-    if (!state.occupiedCheck.checking) {
+    if (!state.inUse) {
         state.occupiedCheck.resArray.push(res);
-        if (!state.inUse) {
+        if (!state.occupiedCheck.checking) {
             state.inUse = true;
             state.occupiedCheck.startTime = Date.now();
             state.occupiedCheck.checking = true;
@@ -80,11 +80,11 @@ async function startCheckOccupied(res) {
                 });
                 state.occupiedCheck.checkInterval = setInterval(checkOccupied, 500);
             });
-        } else {
-            res.json({
-                'status': 'in-use'
-            });
         }
+    } else {
+        res.json({
+            'status': 'in-use'
+        });
     }
 }
 
