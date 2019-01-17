@@ -1,10 +1,11 @@
+import util from 'util';
 import express from 'express';
 import bodyParser from 'body-parser';
 import config from './config.json';
 import childProcess from 'child_process';
 import crypto from 'crypto';
 
-const exec = childProcess.exec;
+const exec = util.promisify(childProcess.exec);
 
 const app = express();
 const tokens = {};
@@ -18,7 +19,7 @@ const state = {
         resArray: [],
         checking: false,
     }
-}
+};
 
 function randomBytes(bytes) {
     return new Promise(function randomBytesPromise(resolve, reject) {
@@ -54,77 +55,52 @@ function isAuthenticated(req, res, next) {
     }
 }
 
-function startCheckOccupied(res) {
+async function startCheckOccupied(res) {
     if (Date.now() < state.occupiedCheck.lastChecked + (config['check-occupied-status-expiry'] * 1000)) {
         res.json({ 'occupied': state.occupiedCheck.lastCheckedStatus });
         return;
     }
     state.occupiedCheck.resArray.push(res);
     if (!state.occupiedCheck.checking) {
-        exec('./actions/notify.sh', (err, stdout, stderr) => {
-            if (err) {
-                next(err);
-            } else {
-                if (stderr) {
-                    next(err);
-                } else {
-                    state.occupiedCheck.startTime = Date.now();
-                    exec('./actions/tray-open.sh', (err, stdout, stderr) => {
-                        if (err) {
-                            throw err;
-                        } else {
-                            if (stderr) {
-                                throw err;
-                            } else {
-                                state.occupiedCheck.checkInterval = setInterval(checkOccupied, 500);
-                            }
-                        }
-                    });
-                }
+        state.occupiedCheck.startTime = Date.now();
+        state.occupiedCheck.checking = true;
+        exec('./actions/tray-open.sh');
+        exec('./actions/notify.sh').then(async () => {
+            const trayStatus = await checkTrayStatus();
+            if (trayStatus === 'close') {
+                stopCheckOccupied(true);
+                return;
             }
+            exec('espeak "Close the CD Drive."');
+            state.occupiedCheck.checkInterval = setInterval(checkOccupied, 500);
         });
     }
 }
 
-function checkOccupied() {
+async function checkTrayStatus() {
+    return (await exec('./actions/traystatus')).stdout;
+}
+
+function stopCheckOccupied(occupied) {
+    clearInterval(state.occupiedCheck.checkInterval);
+    for (const res of state.occupiedCheck.resArray) {
+        res.json({ 'occupied': occupied });
+    }
+    state.occupiedCheck.lastChecked = Date.now();
+    state.occupiedCheck.lastCheckedStatus = occupied;
+    state.occupiedCheck.resArray = [];
+    state.occupiedCheck.checking = false;
+}
+
+async function checkOccupied() {
     if (Date.now() <= state.occupiedCheck.startTime + (config['check-occupied-timeout'] * 1000)) {
-        exec('./actions/traystatus', (err, stdout, stderr) => {
-            if (err) {
-                console.error(err);
-            } else {
-                if (stderr) {
-                    console.error(err);
-                }
-                if (stdout === 'close') {
-                    clearInterval(state.occupiedCheck.checkInterval);
-                    for (const res of state.occupiedCheck.resArray) {
-                        res.json({ 'occupied': true });
-                    }
-                    state.occupiedCheck.lastChecked = Date.now();
-                    state.occupiedCheck.lastCheckedStatus = true;
-                    state.occupiedCheck.resArray = [];
-                    state.occupiedCheck.checking = false;
-                }
-            }
-        });
+        const trayStatus = await checkTrayStatus();
+        if (trayStatus === 'close') {
+            stopCheckOccupied(true);
+        }
     } else {
-        clearInterval(state.occupiedCheck.checkInterval);
-        exec('./actions/tray-close.sh', (err, stdout, stderr) => {
-            if (err) {
-                console.error(err);
-            } else {
-                if (stderr) {
-                    console.error(err);
-                }
-                for (const res of state.occupiedCheck.resArray) {
-                    res.json({ 'occupied': false });
-                }
-                state.occupiedCheck.lastChecked = Date.now();
-                state.occupiedCheck.lastCheckedStatus = false;
-                state.occupiedCheck.checking = false;
-                state.occupiedCheck.resArray = [];
-            }
-        });
+        exec('./actions/tray-close.sh');
+        stopCheckOccupied(false);
     }
 }
 
@@ -142,23 +118,14 @@ app.post('/api/login', async function (req, res, next) {
     } else {
         res.json({
             'status': 'failed'
-        })
+        });
     }
 });
 
-app.post('/api/doorbell', isAuthenticated, function (req, res, next) {
-    exec('./actions/ring.sh', (err, stdout, stderr) => {
-        if (err) {
-            next(err);
-        } else {
-            if (stderr) {
-                next(err);
-            } else {
-                res.json({
-                    'status': 'success'
-                });
-            }
-        }
+app.post('/api/doorbell', isAuthenticated, async function (req, res, next) {
+    await exec('./actions/ring.sh');
+    res.json({
+        'status': 'success'
     });
 });
 
@@ -166,19 +133,10 @@ app.post('/api/check', isAuthenticated, function (req, res, next) {
     startCheckOccupied(res);
 });
 
-app.post('/api/alarm', isAuthenticated, function (req, res, next) {
-    exec('./actions/alarm.sh', (err, stdout, stderr) => {
-        if (err) {
-            next(err);
-        } else {
-            if (stderr) {
-                next(err);
-            } else {
-                res.json({
-                    'status': 'success'
-                });
-            }
-        }
+app.post('/api/alarm', isAuthenticated, async function (req, res, next) {
+    await exec('./actions/alarm.sh');
+    res.json({
+        'status': 'success'
     });
 });
 
@@ -194,5 +152,5 @@ app.use(function (err, req, res, next) {
 });
 
 app.listen(config.api.port, function () {
-    console.log("Started API on port " + config.api.port);
+    console.log('Started API on port ' + config.api.port);
 });
