@@ -11,6 +11,7 @@ const app = express();
 const tokens = {};
 
 const state = {
+    inUse: false,
     occupiedCheck: {
         lastChecked: null,
         lastCheckedStatus: null,
@@ -62,18 +63,28 @@ async function startCheckOccupied(res) {
     }
     state.occupiedCheck.resArray.push(res);
     if (!state.occupiedCheck.checking) {
-        state.occupiedCheck.startTime = Date.now();
-        state.occupiedCheck.checking = true;
-        exec('./actions/tray-open.sh');
-        exec('./actions/notify.sh').then(async () => {
-            const trayStatus = await checkTrayStatus();
-            if (trayStatus === 'close') {
-                stopCheckOccupied(true);
-                return;
-            }
-            exec('espeak "If you hear this, close the CD Tray." -s 160');
-            state.occupiedCheck.checkInterval = setInterval(checkOccupied, 500);
-        });
+        if (!state.inUse) {
+            state.inUse = true;
+            state.occupiedCheck.startTime = Date.now();
+            state.occupiedCheck.checking = true;
+            exec('./actions/tray-open.sh');
+            exec('./actions/notify.sh').then(async () => {
+                const trayStatus = await checkTrayStatus();
+                if (trayStatus === 'close') {
+                    state.inUse = false;
+                    stopCheckOccupied(true);
+                    return;
+                }
+                exec('espeak "If you hear this, close the CD Tray." -s 160').then(() => {
+                    state.inUse = false;
+                });
+                state.occupiedCheck.checkInterval = setInterval(checkOccupied, 500);
+            });
+        } else {
+            res.json({
+                'status': 'in-use'
+            });
+        }
     }
 }
 
@@ -123,18 +134,34 @@ app.post('/api/login', async function (req, res, next) {
 });
 
 app.post('/api/doorbell', isAuthenticated, async function (req, res, next) {
-    await exec('./actions/ring.sh');
-    await exec('espeak "Someone is at the door." -s 160');
-    res.json({
-        'status': 'success'
-    });
+    if (!state.inUse) {
+        state.inUse = true;
+        await exec('./actions/ring.sh');
+        await exec('espeak "Someone is at the door." -s 160');
+        state.inUse = false;
+        res.json({
+            'status': 'success'
+        });
+    } else {
+        res.json({
+            'status': 'in-use'
+        });
+    }
 });
 
 app.post('/api/broadcast', isAuthenticated, async function (req, res, next) {
-    await exec('espeak "' + req.body.message + '" -s 160');
-    res.json({
-        'status': 'success'
-    });
+    if (!state.inUse) {
+        state.inUse = true;
+        await exec('espeak "' + req.body.message + '" -s 160');
+        state.inUse = false;
+        res.json({
+            'status': 'success'
+        });
+    } else {
+        res.json({
+            'status': 'in-use'
+        });
+    }
 });
 
 app.post('/api/check', isAuthenticated, function (req, res, next) {
@@ -142,10 +169,18 @@ app.post('/api/check', isAuthenticated, function (req, res, next) {
 });
 
 app.post('/api/alarm', isAuthenticated, async function (req, res, next) {
-    await exec('./actions/alarm.sh');
-    res.json({
-        'status': 'success'
-    });
+    if (!state.inUse) {
+        state.inUse = true;
+        await exec('./actions/alarm.sh');
+        state.inUse = false;
+        res.json({
+            'status': 'success'
+        });
+    } else {
+        res.json({
+            'status': 'in-use'
+        });
+    }
 });
 
 app.use(function (req, res, next) {

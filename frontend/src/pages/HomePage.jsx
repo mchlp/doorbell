@@ -18,6 +18,7 @@ export default class HomePage extends Component {
             check: false,
             alarm: false,
             broadcast: false,
+            inuse: false,
         };
         this.handleDoorbell = this.handleDoorbell.bind(this);
         this.handleAlarm = this.handleAlarm.bind(this);
@@ -27,11 +28,13 @@ export default class HomePage extends Component {
 
     async handleDoorbell() {
         this.setState({
-            doorbell: true
+            doorbell: true,
+            inuse: false
         }, async () => {
-            await axios.post('/api/doorbell');
+            const res = await axios.post('/api/doorbell');
             this.setState({
-                doorbell: false
+                doorbell: false,
+                inuse: res.data.status === 'in-use'
             });
         });
     }
@@ -39,13 +42,15 @@ export default class HomePage extends Component {
     async handleCheck() {
         if (this.state.occupiedStatus === OccupiedStatus.UNKNOWN) {
             this.setState({
-                check: true
+                check: true,
+                inuse: false
             }, async () => {
                 const res = await axios.post('/api/check');
                 if (res) {
                     this.setState({
                         occupiedStatus: res.data.occupied ? OccupiedStatus.OCCUPIED : OccupiedStatus.UNOCCUPIED,
                         check: false,
+                        inuse: res.data.status === 'in-use'
                     });
                 }
                 setTimeout(() => {
@@ -59,11 +64,13 @@ export default class HomePage extends Component {
 
     async handleAlarm() {
         this.setState({
-            alarm: true
+            alarm: true,
+            inuse: false
         }, async () => {
-            await axios.post('/api/alarm');
+            const res = await axios.post('/api/alarm');
             this.setState({
-                alarm: false
+                alarm: false,
+                inuse: res.data.status === 'in-use'
             });
         });
     }
@@ -71,15 +78,19 @@ export default class HomePage extends Component {
     async handleBroadcast(e) {
         e.preventDefault();
         this.setState({
-            broadcast: true
+            broadcast: true,
+            inuse: false
         }, async () => {
-            await axios.post('/api/broadcast', {
+            const res = await axios.post('/api/broadcast', {
                 message: document.getElementById('broadcast-message').value
             });
             this.setState({
-                broadcast: false
+                broadcast: false,
+                inuse: res.data.status === 'in-use'
             });
-            document.getElementById('broadcast-message').value = '';
+            if (res.data.status === 'success') {
+                document.getElementById('broadcast-message').value = '';
+            }
         });
     }
 
@@ -88,6 +99,13 @@ export default class HomePage extends Component {
             <div className="container mt-3">
                 {localStorage.token ?
                     <div>
+                        {this.state.inuse ?
+                            <div className='alert alert-danger'>
+                                Currently in use. Please try again later.
+                            </div>
+                            :
+                            null
+                        }
                         <button className="btn btn-primary btn-lg btn-block" onClick={this.handleDoorbell} disabled={this.state.doorbell}>
                             {this.state.doorbell ?
                                 <div>
