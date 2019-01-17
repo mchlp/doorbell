@@ -61,8 +61,8 @@ async function startCheckOccupied(res) {
         res.json({ 'occupied': state.occupiedCheck.lastCheckedStatus });
         return;
     }
-    state.occupiedCheck.resArray.push(res);
     if (!state.occupiedCheck.checking) {
+        state.occupiedCheck.resArray.push(res);
         if (!state.inUse) {
             state.inUse = true;
             state.occupiedCheck.startTime = Date.now();
