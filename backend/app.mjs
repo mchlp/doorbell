@@ -19,18 +19,13 @@ const state = {
         startTime: null,
         resArray: [],
         checking: false,
-<<<<<<< HEAD
-    }
-};
-=======
     },
-    lastMotion = Date.now()
+    lastMotion: Date.now()
 }
->>>>>>> Use motion sensor
 
 const motionSerial = fs.createReadStream('/dev/ttyUSB0');
 motionSerial.on('data', function (chunk) {
-    lastMotion = Date.now();
+    state.lastMotion = Date.now();
 });
 
 
