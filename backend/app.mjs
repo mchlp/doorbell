@@ -4,12 +4,12 @@ import bodyParser from 'body-parser';
 import config from './config.json';
 import childProcess from 'child_process';
 import crypto from 'crypto';
+import fs from 'fs';
 
 const exec = util.promisify(childProcess.exec);
 
 const app = express();
 const tokens = {};
-
 const state = {
     inUse: false,
     occupiedCheck: {
@@ -19,8 +19,20 @@ const state = {
         startTime: null,
         resArray: [],
         checking: false,
+<<<<<<< HEAD
     }
 };
+=======
+    },
+    lastMotion = Date.now()
+}
+>>>>>>> Use motion sensor
+
+const motionSerial = fs.createReadStream('/dev/ttyUSB0');
+motionSerial.on('data', function (chunk) {
+    lastMotion = Date.now();
+});
+
 
 function randomBytes(bytes) {
     return new Promise(function randomBytesPromise(resolve, reject) {
@@ -88,31 +100,49 @@ async function startCheckOccupied(res) {
     }
 }
 
-async function checkTrayStatus() {
-    return (await exec('./actions/traystatus')).stdout;
-}
-
-function stopCheckOccupied(occupied) {
-    clearInterval(state.occupiedCheck.checkInterval);
-    for (const res of state.occupiedCheck.resArray) {
-        res.json({ 'occupied': occupied });
-    }
-    state.occupiedCheck.lastChecked = Date.now();
-    state.occupiedCheck.lastCheckedStatus = occupied;
-    state.occupiedCheck.resArray = [];
-    state.occupiedCheck.checking = false;
-}
-
-async function checkOccupied() {
-    if (Date.now() <= state.occupiedCheck.startTime + (config['check-occupied-timeout'] * 1000)) {
-        const trayStatus = await checkTrayStatus();
-        if (trayStatus === 'close') {
-            stopCheckOccupied(true);
-        }
+function checkOccupied() {
+    res.json({
+        'occupied': Date.now() <= state.lastMotion + config['motion-delay']
+    })
+    /*if (Date.now() <= state.occupiedCheck.startTime + (config['check-occupied-timeout'] * 1000)) {
+        exec('./actions/traystatus', (err, stdout, stderr) => {
+            if (err) {
+                console.error(err);
+            } else {
+                if (stderr) {
+                    console.error(err);
+                }
+                if (stdout === 'close') {
+                    clearInterval(state.occupiedCheck.checkInterval);
+                    for (const res of state.occupiedCheck.resArray) {
+                        res.json({ 'occupied': true });
+                    }
+                    state.occupiedCheck.lastChecked = Date.now();
+                    state.occupiedCheck.lastCheckedStatus = true;
+                    state.occupiedCheck.resArray = [];
+                    state.occupiedCheck.checking = false;
+                }
+            }
+        });
     } else {
-        exec('./actions/tray-close.sh');
-        stopCheckOccupied(false);
-    }
+        clearInterval(state.occupiedCheck.checkInterval);
+        exec('./actions/tray-close.sh', (err, stdout, stderr) => {
+            if (err) {
+                console.error(err);
+            } else {
+                if (stderr) {
+                    console.error(err);
+                }
+                for (const res of state.occupiedCheck.resArray) {
+                    res.json({ 'occupied': false });
+                }
+                state.occupiedCheck.lastChecked = Date.now();
+                state.occupiedCheck.lastCheckedStatus = false;
+                state.occupiedCheck.checking = false;
+                state.occupiedCheck.resArray = [];
+            }
+        });
+    }*/
 }
 
 app.use(bodyParser.urlencoded({ extended: false }));
