@@ -7,19 +7,7 @@ class App extends Component {
 
     constructor(props) {
         super(props);
-        this.socket = io(':3002');
-        const token = localStorage.getItem('token');
-        if (token) {
-            this.socket.emit('authenticate', {
-                token: token
-            });
-            this.socket.on('authenticate-reply', (data) => {
-                if (data.status === 'failed') {
-                    localStorage.removeItem('token');
-                    window.location.reload();
-                }
-            });
-        }
+        this.socket = io('');
     }
 
     render() {

@@ -20,6 +20,19 @@ class HomePage extends Component {
             this.setState({
                 connected: true
             });
+            const token = localStorage.getItem('token');
+            if (token) {
+                this.props.socket.emit('authenticate', {
+                    token: token
+                });
+                this.props.socket.on('authenticate-reply', (data) => {
+                    if (data.status === 'failed') {
+                        localStorage.removeItem('token');
+                        window.location.reload();
+                    }
+                });
+            }
+            this.props.socket.emit('occupancy-check');
         });
 
         this.props.socket.on('disconnect', () => {
@@ -28,9 +41,9 @@ class HomePage extends Component {
             });
         });
 
-        this.props.socket.on('update-occupancy', (data) => {
+        this.props.socket.on('occupancy-update', (data) => {
             this.setState({
-                occupied: !!data
+                occupied: !!data.occupied
             });
         });
 
@@ -99,19 +112,24 @@ class HomePage extends Component {
                                 </div>
                             }
                         </button>
-                        <button className={'btn btn-lg btn-block' + (this.state.occupied ? ' btn-success' : ' btn-warning')}>
+                        <button className={'btn btn-lg btn-block' + (!this.state.connected ? ' btn-danger' : this.state.occupied ? ' btn-success' : ' btn-warning')}>
                             {
-                                this.state.occupied ?
-                                    <div>
-                                        <b>Occupancy:</b> Occupied
-                                    </div>
+                                this.state.connected ?
+                                    this.state.occupied ?
+                                        <div>
+                                            <b>Occupancy:</b> Occupied
+                                        </div>
+                                        :
+                                        <div>
+                                            <b>Occupancy:</b> Unoccupied
+                                        </div>
                                     :
                                     <div>
-                                        <b>Occupancy:</b> Unoccupied
+                                        <b>Occupancy:</b> Unknown
                                     </div>
                             }
                         </button>
-                        <button className="btn btn-primary btn-lg btn-block" type='doorbell' onClick={this.handleSoundAction} disabled={this.state.doorbell}>
+                        <button className="btn btn-primary btn-lg btn-block" type='doorbell' onClick={this.handleSoundAction} disabled={this.state.doorbell || !this.state.connected}>
                             {this.state.doorbell ?
                                 <div>
                                     <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
@@ -124,9 +142,9 @@ class HomePage extends Component {
                         </button>
                         <form onSubmit={this.handleBroadcast}>
                             <div className="input-group my-3">
-                                <input type="text" id="broadcast-message" className="form-control" placeholder="Enter message to broadcast" required />
+                                <input type="text" id="broadcast-message" className="form-control" placeholder="Enter message to broadcast" required disabled={!this.state.connected} />
                                 <div className="input-group-append">
-                                    <button className="btn btn-primary" type="submit" disabled={this.state.broadcast}>
+                                    <button className="btn btn-primary" type="submit" disabled={this.state.broadcast || !this.state.connected}>
                                         {this.state.broadcast ?
                                             <div>
                                                 <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
@@ -140,7 +158,7 @@ class HomePage extends Component {
                                 </div>
                             </div>
                         </form>
-                        <button className="btn btn-danger btn-lg btn-block" type='alarm' onClick={this.handleSoundAction} disabled={this.state.alarm}>
+                        <button className="btn btn-danger btn-lg btn-block" type='alarm' onClick={this.handleSoundAction} disabled={this.state.alarm || !this.state.connected}>
                             {this.state.alarm ?
                                 <div>
                                     <i className='fa fa-circle-o-notch fa-spin mr-2'></i>

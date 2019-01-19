@@ -16,22 +16,26 @@ const io = socketIO(server);
 const tokens = {};
 const state = {
     inUse: false,
-    occupiedCheck: {
-        lastChecked: null,
-        lastCheckedStatus: null,
-        checkInterval: null,
-        startTime: null,
-        resArray: [],
-        checking: false,
-    },
-    lastMotion: Date.now()
-}
+    lastMotion: 0,
+    occupied: false,
+};
 
-const motionSerial = fs.createReadStream('/dev/ttyUSB0');
+const motionSerial = fs.createReadStream(config['occupancy-status-stream']);
 motionSerial.on('data', function (chunk) {
-    state.lastMotion = Date.now();
+    if (chunk.toString().includes('1')) {
+        state.lastMotion = Date.now();
+    }
 });
 
+setInterval(() => {
+    const curStatus = Date.now() <= state.lastMotion + (config['motion-delay'] * 1000);
+    if (curStatus != state.occupied) {
+        state.occupied = curStatus;
+        io.emit('occupancy-update', {
+            occupied: state.occupied
+        });
+    }
+}, 1000);
 
 function logAction(action, socket) {
     console.log('[' + new Date().toLocaleString() + '] - ' + (socket ? socket.id + ' - ' : '') + action);
@@ -50,16 +54,6 @@ async function genToken(len) {
     return (await randomBytes(len)).toString('base64').substring(0, len);
 }
 
-function isAuthenticated(req, res, next) {
-    const rawToken = req.get('Authorization');
-    if (authenticate(rawToken)) {
-        return next();
-    } else {
-        res.status(401).end('Not authorized');
-        return;
-    }
-}
-
 function authenticate(token) {
     if (!token) {
         return false;
@@ -71,51 +65,6 @@ function authenticate(token) {
         }
         return true;
     }
-}
-
-function checkOccupied() {
-    res.json({
-        'occupied': Date.now() <= state.lastMotion + config['motion-delay']
-    })
-    /*if (Date.now() <= state.occupiedCheck.startTime + (config['check-occupied-timeout'] * 1000)) {
-        exec('./actions/traystatus', (err, stdout, stderr) => {
-            if (err) {
-                console.error(err);
-            } else {
-                if (stderr) {
-                    console.error(err);
-                }
-                if (stdout === 'close') {
-                    clearInterval(state.occupiedCheck.checkInterval);
-                    for (const res of state.occupiedCheck.resArray) {
-                        res.json({ 'occupied': true });
-                    }
-                    state.occupiedCheck.lastChecked = Date.now();
-                    state.occupiedCheck.lastCheckedStatus = true;
-                    state.occupiedCheck.resArray = [];
-                    state.occupiedCheck.checking = false;
-                }
-            }
-        });
-    } else {
-        clearInterval(state.occupiedCheck.checkInterval);
-        exec('./actions/tray-close.sh', (err, stdout, stderr) => {
-            if (err) {
-                console.error(err);
-            } else {
-                if (stderr) {
-                    console.error(err);
-                }
-                for (const res of state.occupiedCheck.resArray) {
-                    res.json({ 'occupied': false });
-                }
-                state.occupiedCheck.lastChecked = Date.now();
-                state.occupiedCheck.lastCheckedStatus = false;
-                state.occupiedCheck.checking = false;
-                state.occupiedCheck.resArray = [];
-            }
-        });
-    }*/
 }
 
 async function startSoundAction(actionFunc, actionName, socket) {
@@ -180,7 +129,7 @@ io.on('connection', (socket) => {
     socket.on('authenticate', (data) => {
         if (authenticate(data.token)) {
 
-            socket.on('doorbell', async (data) => {
+            socket.on('doorbell', async () => {
                 await startSoundAction(async () => {
                     await exec('./actions/ring.sh');
                     await talk('Someone is at the door.');
@@ -193,10 +142,16 @@ io.on('connection', (socket) => {
                 }, 'broadcast', socket);
             });
 
-            socket.on('alarm', async (data) => {
+            socket.on('alarm', async () => {
                 await startSoundAction(async () => {
                     await exec('./actions/alarm.sh');
                 }, 'alarm', socket);
+            });
+
+            socket.on('occupancy-check', async () => {
+                socket.emit('occupancy-update', {
+                    occupied: state.occupied
+                });
             });
 
             socket.emit('authenticate-reply', {
