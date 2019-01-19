@@ -1,76 +1,56 @@
 import React, { Component } from 'react';
 import LoginPage from './LoginPage';
-import axios from 'axios';
+import SocketContext from '../socket';
 
-const OccupiedStatus = {
-    UNKNOWN: 0,
-    OCCUPIED: 1,
-    UNOCCUPIED: 2
-};
-
-export default class HomePage extends Component {
+class HomePage extends Component {
 
     constructor(props) {
         super(props);
         this.state = {
-            occupiedStatus: OccupiedStatus.UNKNOWN,
+            connected: false,
+            occupied: false,
             doorbell: false,
             check: false,
             alarm: false,
             broadcast: false,
             inuse: false,
         };
-        this.handleDoorbell = this.handleDoorbell.bind(this);
-        this.handleAlarm = this.handleAlarm.bind(this);
-        this.handleCheck = this.handleCheck.bind(this);
+
+        this.props.socket.on('connect', () => {
+            this.setState({
+                connected: true
+            });
+        });
+
+        this.props.socket.on('disconnect', () => {
+            this.setState({
+                connected: false
+            });
+        });
+
+        this.props.socket.on('update-occupancy', (data) => {
+            this.setState({
+                occupied: !!data
+            });
+        });
+
+        this.handleSoundAction = this.handleSoundAction.bind(this);
         this.handleBroadcast = this.handleBroadcast.bind(this);
     }
 
-    async handleDoorbell() {
+    async handleSoundAction(e) {
+        const type = e.currentTarget.getAttribute('type');
         this.setState({
-            doorbell: true,
+            [type]: true,
             inuse: false
         }, async () => {
-            const res = await axios.post('/api/doorbell');
-            this.setState({
-                doorbell: false,
-                inuse: res.data.status === 'in-use'
-            });
-        });
-    }
-
-    async handleCheck() {
-        if (this.state.occupiedStatus === OccupiedStatus.UNKNOWN) {
-            this.setState({
-                check: true,
-                inuse: false
-            }, async () => {
-                const res = await axios.post('/api/check');
-                if (res) {
-                    this.setState({
-                        occupiedStatus: res.data.occupied ? OccupiedStatus.OCCUPIED : OccupiedStatus.UNOCCUPIED,
-                        check: false,
-                        inuse: res.data.status === 'in-use'
-                    });
-                }
-                setTimeout(() => {
-                    this.setState({
-                        occupiedStatus: OccupiedStatus.UNKNOWN
-                    });
-                }, 3000);
-            });
-        }
-    }
-
-    async handleAlarm() {
-        this.setState({
-            alarm: true,
-            inuse: false
-        }, async () => {
-            const res = await axios.post('/api/alarm');
-            this.setState({
-                alarm: false,
-                inuse: res.data.status === 'in-use'
+            this.props.socket.emit(type);
+            this.props.socket.on(type + '-reply', (data) => {
+                this.setState({
+                    [type]: false,
+                    inuse: data.status === 'in-use'
+                });
+                this.props.socket.off(type + '-reply');
             });
         });
     }
@@ -81,23 +61,26 @@ export default class HomePage extends Component {
             broadcast: true,
             inuse: false
         }, async () => {
-            const res = await axios.post('/api/broadcast', {
+            this.props.socket.emit('broadcast', {
                 message: document.getElementById('broadcast-message').value
             });
-            this.setState({
-                broadcast: false,
-                inuse: res.data.status === 'in-use'
+            this.props.socket.on('broadcast-reply', (data) => {
+                this.setState({
+                    broadcast: false,
+                    inuse: data.status === 'in-use'
+                });
+                if (data.status === 'success') {
+                    document.getElementById('broadcast-message').value = '';
+                }
+                this.props.socket.off('broadcast-reply');
             });
-            if (res.data.status === 'success') {
-                document.getElementById('broadcast-message').value = '';
-            }
         });
     }
 
     render() {
         return (
             <div className="container mt-3">
-                {localStorage.token ?
+                {localStorage.getItem('token') ?
                     <div>
                         {this.state.inuse ?
                             <div className='alert alert-danger'>
@@ -106,7 +89,29 @@ export default class HomePage extends Component {
                             :
                             null
                         }
-                        <button className="btn btn-primary btn-lg btn-block" onClick={this.handleDoorbell} disabled={this.state.doorbell}>
+                        <button className={'btn btn-lg btn-block' + (this.state.connected ? ' btn-success' : ' btn-danger')}>
+                            {this.state.connected ?
+                                <div>
+                                    <b>Status:</b> Connected
+                                </div> :
+                                <div>
+                                    <b>Status:</b> Not Connected
+                                </div>
+                            }
+                        </button>
+                        <button className={'btn btn-lg btn-block' + (this.state.occupied ? ' btn-success' : ' btn-warning')}>
+                            {
+                                this.state.occupied ?
+                                    <div>
+                                        <b>Occupancy:</b> Occupied
+                                    </div>
+                                    :
+                                    <div>
+                                        <b>Occupancy:</b> Unoccupied
+                                    </div>
+                            }
+                        </button>
+                        <button className="btn btn-primary btn-lg btn-block" type='doorbell' onClick={this.handleSoundAction} disabled={this.state.doorbell}>
                             {this.state.doorbell ?
                                 <div>
                                     <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
@@ -115,27 +120,6 @@ export default class HomePage extends Component {
                                 <div>
                                     Doorbell
                                 </div>
-                            }
-                        </button>
-                        <button className={'btn btn-lg btn-block' + (this.state.occupiedStatus === OccupiedStatus.UNKNOWN ? ' btn-primary' : this.state.occupiedStatus === OccupiedStatus.OCCUPIED ? ' btn-success' : ' btn-warning')} onClick={this.handleCheck} disabled={this.state.check}>
-                            {this.state.occupiedStatus === OccupiedStatus.UNKNOWN ?
-                                this.state.check ?
-                                    <div>
-                                        <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
-                                        Check Occupancy
-                                    </div> :
-                                    <div>
-                                        Check Occupancy
-                                    </div>
-                                :
-                                this.state.occupiedStatus === OccupiedStatus.OCCUPIED ?
-                                    <div>
-                                        Occupied
-                                    </div>
-                                    :
-                                    <div>
-                                        Unoccupied
-                                    </div>
                             }
                         </button>
                         <form onSubmit={this.handleBroadcast}>
@@ -156,7 +140,7 @@ export default class HomePage extends Component {
                                 </div>
                             </div>
                         </form>
-                        <button className="btn btn-danger btn-lg btn-block" onClick={this.handleAlarm} disabled={this.state.alarm}>
+                        <button className="btn btn-danger btn-lg btn-block" type='alarm' onClick={this.handleSoundAction} disabled={this.state.alarm}>
                             {this.state.alarm ?
                                 <div>
                                     <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
@@ -174,3 +158,11 @@ export default class HomePage extends Component {
         );
     }
 }
+
+const wrappedHomePage = (props) => (
+    <SocketContext.Consumer>
+        {socket => <HomePage {...props} socket={socket} />}
+    </SocketContext.Consumer>
+);
+
+export default wrappedHomePage;

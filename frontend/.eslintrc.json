@@ -36,6 +36,7 @@
             "always"
         ],
         "react/jsx-uses-react": 1,
-        "no-console": "off"
+        "no-console": "off",
+        "react/prop-types": 0
     }
 }

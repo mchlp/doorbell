@@ -1,7 +1,8 @@
 import React, { Component } from 'react';
 import axios from 'axios';
+import SocketContext from '../socket';
 
-export default class LoginPage extends Component {
+class LoginPage extends Component {
 
     constructor(props) {
         super(props);
@@ -16,7 +17,14 @@ export default class LoginPage extends Component {
         if (res.data.status === 'success') {
             localStorage.setItem('token', res.data.token);
         }
-        window.location.reload();
+        this.props.socket.emit('authenticate', {
+            token: res.data.token
+        });
+        this.props.socket.on('authenticate-reply', () => {
+            console.log('done');
+            window.location.reload();
+            this.props.socket.instance.off('authenticate-reply');
+        });
     }
 
     render() {
@@ -33,3 +41,11 @@ export default class LoginPage extends Component {
         );
     }
 }
+
+const wrappedLoginPage = (props) => (
+    <SocketContext.Consumer>
+        {socket => <LoginPage {...props} socket={socket} />}
+    </SocketContext.Consumer>
+);
+
+export default wrappedLoginPage;

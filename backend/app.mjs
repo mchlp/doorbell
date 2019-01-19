@@ -1,14 +1,18 @@
 import util from 'util';
 import express from 'express';
+import http from 'http';
 import bodyParser from 'body-parser';
 import config from './config.json';
 import childProcess from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
+import socketIO from 'socket.io';
 
 const exec = util.promisify(childProcess.exec);
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIO(server);
 const tokens = {};
 const state = {
     inUse: false,
@@ -29,6 +33,10 @@ motionSerial.on('data', function (chunk) {
 });
 
 
+function logAction(action, socket) {
+    console.log('[' + new Date().toLocaleString() + '] - ' + (socket ? socket.id + ' - ' : '') + action);
+}
+
 function randomBytes(bytes) {
     return new Promise(function randomBytesPromise(resolve, reject) {
         crypto.randomBytes(bytes, function (err, buffer) {
@@ -44,54 +52,24 @@ async function genToken(len) {
 
 function isAuthenticated(req, res, next) {
     const rawToken = req.get('Authorization');
-    if (!rawToken) {
+    if (authenticate(rawToken)) {
+        return next();
+    } else {
         res.status(401).end('Not authorized');
         return;
-    } else {
-        if (rawToken in tokens) {
-            if (tokens[rawToken] < Date.now()) {
-                delete tokens[rawToken];
-                res.status(401).end('Not authorized');
-                return;
-            }
-            return next();
-        }
-        else {
-            res.status(401).end('Not authorized');
-            return;
-        }
     }
 }
 
-async function startCheckOccupied(res) {
-    if (Date.now() < state.occupiedCheck.lastChecked + (config['check-occupied-status-expiry'] * 1000)) {
-        res.json({ 'occupied': state.occupiedCheck.lastCheckedStatus });
-        return;
+function authenticate(token) {
+    if (!token) {
+        return false;
     }
-    if (!state.inUse || state.inUse === 'check') {
-        state.occupiedCheck.resArray.push(res);
-        if (!state.occupiedCheck.checking) {
-            state.inUse = 'check';
-            state.occupiedCheck.startTime = Date.now();
-            state.occupiedCheck.checking = true;
-            exec('./actions/tray-open.sh');
-            exec('./actions/notify.sh').then(async () => {
-                const trayStatus = await checkTrayStatus();
-                if (trayStatus === 'close') {
-                    state.inUse = null;
-                    stopCheckOccupied(true);
-                    return;
-                }
-                exec('espeak "If you hear this, close the CD Tray." -s 160').then(() => {
-                    state.inUse = null;
-                });
-                state.occupiedCheck.checkInterval = setInterval(checkOccupied, 500);
-            });
+    if (token in tokens) {
+        if (tokens[token] < Date.now()) {
+            delete tokens[token];
+            return false;
         }
-    } else {
-        res.json({
-            'status': 'in-use'
-        });
+        return true;
     }
 }
 
@@ -140,10 +118,32 @@ function checkOccupied() {
     }*/
 }
 
+async function startSoundAction(actionFunc, actionName, socket) {
+    logAction(actionName + ' attempted.', socket);
+    if (!state.inUse) {
+        state.inUse = actionName;
+        await actionFunc();
+        state.inUse = null;
+        socket.emit(actionName + '-reply', {
+            'status': 'success'
+        });
+        logAction(actionName + ' succeeded.', socket);
+    } else {
+        socket.emit(actionName + '-reply', {
+            'status': 'in-use'
+        });
+        logAction(actionName + ' failed, in use.', socket);
+    }
+}
+
+async function talk(message) {
+    await exec('espeak "' + message + '" -s 150');
+}
+
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-app.post('/api/login', async function (req, res, next) {
+app.post('/api/login', async (req, res, next) => {
     if (req.body.password === config.password) {
         const token = await genToken(16);
         tokens[token] = Date.now() + (config['token-expiry'] * 1000);
@@ -158,67 +158,63 @@ app.post('/api/login', async function (req, res, next) {
     }
 });
 
-app.post('/api/doorbell', isAuthenticated, async function (req, res, next) {
-    if (!state.inUse) {
-        state.inUse = 'doorbell';
-        await exec('./actions/ring.sh');
-        await exec('espeak "Someone is at the door." -s 160');
-        state.inUse = null;
-        res.json({
-            'status': 'success'
-        });
-    } else {
-        res.json({
-            'status': 'in-use'
-        });
-    }
-});
-
-app.post('/api/broadcast', isAuthenticated, async function (req, res, next) {
-    if (!state.inUse) {
-        state.inUse = 'broadcast';
-        await exec('espeak "' + req.body.message + '" -s 160');
-        state.inUse = null;
-        res.json({
-            'status': 'success'
-        });
-    } else {
-        res.json({
-            'status': 'in-use'
-        });
-    }
-});
-
-app.post('/api/check', isAuthenticated, function (req, res, next) {
-    startCheckOccupied(res);
-});
-
-app.post('/api/alarm', isAuthenticated, async function (req, res, next) {
-    if (!state.inUse) {
-        state.inUse = 'alarm';
-        await exec('./actions/alarm.sh');
-        state.inUse = null;
-        res.json({
-            'status': 'success'
-        });
-    } else {
-        res.json({
-            'status': 'in-use'
-        });
-    }
-});
-
-app.use(function (req, res, next) {
+app.use((req, res, next) => {
     res.status(404);
     res.end('404');
 });
 
-app.use(function (err, req, res, next) {
+app.use((err, req, res, next) => {
     res.status(500);
     res.end('Internal Server Error');
     console.error(err);
 });
 
-app.listen(config.api.port, function () {
+app.listen(config.api.port, () => {
     console.log('Started API on port ' + config.api.port);
+});
+
+
+io.set('origins', '*:*');
+io.on('connection', (socket) => {
+    logAction('New client connected.', socket);
+    socket.on('authenticate', (data) => {
+        if (authenticate(data.token)) {
+
+            socket.on('doorbell', async (data) => {
+                await startSoundAction(async () => {
+                    await exec('./actions/ring.sh');
+                    await talk('Someone is at the door.');
+                }, 'doorbell', socket);
+            });
+
+            socket.on('broadcast', async (data) => {
+                await startSoundAction(async () => {
+                    await talk(data.message);
+                }, 'broadcast', socket);
+            });
+
+            socket.on('alarm', async (data) => {
+                await startSoundAction(async () => {
+                    await exec('./actions/alarm.sh');
+                }, 'alarm', socket);
+            });
+
+            socket.emit('authenticate-reply', {
+                status: 'success'
+            });
+            logAction('Authentication succeeded.', socket);
+        } else {
+            socket.emit('authenticate-reply', {
+                status: 'failed'
+            });
+            logAction('Authentication failed.', socket);
+        }
+    });
+    socket.on('disconnect', () => {
+        logAction('Client disconnected.', socket);
+    });
+});
+
+server.listen(config.socket.port, () => {
+    console.log('Started Socket.IO on port ' + config.socket.port);
 });
