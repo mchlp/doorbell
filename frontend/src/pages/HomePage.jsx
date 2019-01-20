@@ -12,6 +12,7 @@ class HomePage extends Component {
             doorbell: false,
             check: false,
             alarm: false,
+            knock: false,
             broadcast: false,
             inuse: false,
         };
@@ -129,7 +130,7 @@ class HomePage extends Component {
                                     </div>
                             }
                         </button>
-                        <button className="btn btn-primary btn-lg btn-block" type='doorbell' onClick={this.handleSoundAction} disabled={this.state.doorbell || !this.state.connected}>
+                        <button className="btn btn-secondary btn-lg btn-block" type='doorbell' onClick={this.handleSoundAction} disabled={this.state.doorbell || !this.state.connected}>
                             {this.state.doorbell ?
                                 <div>
                                     <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
@@ -140,11 +141,22 @@ class HomePage extends Component {
                                 </div>
                             }
                         </button>
+                        <button className="btn btn-secondary btn-lg btn-block" type='knock' onClick={this.handleSoundAction} disabled={this.state.knock || !this.state.connected}>
+                            {this.state.knock ?
+                                <div>
+                                    <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
+                                    Knock Knock
+                                </div> :
+                                <div>
+                                    Knock Knock
+                                </div>
+                            }
+                        </button>
                         <form onSubmit={this.handleBroadcast}>
                             <div className="input-group my-3">
                                 <input type="text" id="broadcast-message" className="form-control" placeholder="Enter message to broadcast" required disabled={!this.state.connected} />
                                 <div className="input-group-append">
-                                    <button className="btn btn-primary" type="submit" disabled={this.state.broadcast || !this.state.connected}>
+                                    <button className="btn btn-secondary" type="submit" disabled={this.state.broadcast || !this.state.connected}>
                                         {this.state.broadcast ?
                                             <div>
                                                 <i className='fa fa-circle-o-notch fa-spin mr-2'></i>

@@ -71,12 +71,17 @@ async function startSoundAction(actionFunc, actionName, socket) {
     logAction(actionName + ' attempted.', socket);
     if (!state.inUse) {
         state.inUse = actionName;
-        await actionFunc();
+        try {
+            await actionFunc();
+            logAction(actionName + ' succeeded.', socket);
+        } catch (e) {
+            logAction(actionName + ' failed.', socket);
+            console.error(e);
+        }
         state.inUse = null;
         socket.emit(actionName + '-reply', {
             'status': 'success'
         });
-        logAction(actionName + ' succeeded.', socket);
     } else {
         socket.emit(actionName + '-reply', {
             'status': 'in-use'
@@ -146,6 +151,13 @@ io.on('connection', (socket) => {
                 await startSoundAction(async () => {
                     await exec('./actions/alarm.sh');
                 }, 'alarm', socket);
+            });
+
+            socket.on('knock', async () => {
+                await startSoundAction(async () => {
+                    await exec('./actions/notify.sh');
+                    await talk('If you hear this, please pace the room.');
+                }, 'knock', socket);
             });
 
             socket.on('occupancy-check', async () => {
