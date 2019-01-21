@@ -103,33 +103,40 @@ class HomePage extends Component {
                             :
                             null
                         }
-                        <button className={'btn btn-lg btn-block' + (this.state.connected ? ' btn-success' : ' btn-danger')}>
-                            {this.state.connected ?
-                                <div>
-                                    <b>Status:</b> Connected
-                                </div> :
-                                <div>
-                                    <b>Status:</b> Not Connected
-                                </div>
-                            }
-                        </button>
-                        <button className={'btn btn-lg btn-block' + (!this.state.connected ? ' btn-danger' : this.state.occupied ? ' btn-success' : ' btn-warning')}>
-                            {
-                                this.state.connected ?
-                                    this.state.occupied ?
+                        <div className={'card text-white bg-primary mb-2' + (this.state.connected ? ' bg-success' : ' bg-danger')}>
+                            <div className="card-body">
+                                <h5 className="card-text text-center">
+                                    {this.state.connected ?
                                         <div>
-                                            <b>Occupancy:</b> Occupied
+                                            <b>Status:</b> Connected
+                                        </div> :
+                                        <div>
+                                            <b>Status:</b> Not Connected
                                         </div>
+                                    }
+                                </h5>
+                            </div>
+                        </div>
+                        <div className={'card bg-primary mb-2' + (!this.state.connected ? ' bg-danger text-white' : this.state.occupied ? ' bg-success text-white' : ' bg-warning text-black')}>
+                            <div className="card-body">
+                                <h5 className="card-text text-center">
+                                    {this.state.connected ?
+                                        this.state.occupied ?
+                                            <div>
+                                                <b>Occupancy:</b> Occupied
+                                            </div>
+                                            :
+                                            <div>
+                                                <b>Occupancy:</b> Unoccupied
+                                            </div>
                                         :
                                         <div>
-                                            <b>Occupancy:</b> Unoccupied
+                                            <b>Occupancy:</b> Unknown
                                         </div>
-                                    :
-                                    <div>
-                                        <b>Occupancy:</b> Unknown
-                                    </div>
-                            }
-                        </button>
+                                    }
+                                </h5>
+                            </div>
+                        </div>
                         <button className="btn btn-secondary btn-lg btn-block" type='doorbell' onClick={this.handleSoundAction} disabled={this.state.doorbell || !this.state.connected}>
                             {this.state.doorbell ?
                                 <div>
