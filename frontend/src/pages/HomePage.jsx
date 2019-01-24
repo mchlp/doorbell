@@ -4,9 +4,10 @@ import SocketContext from '../socket';
 import axios from 'axios';
 
 const occupancyStatusBarColours = {
-    unknown: '#E5E5E5',
-    occupied: '#1FBA00',
-    unoccupied: '#BA0000',
+    unknown: '#fcfcfc',
+    occupied: '#06d117',
+    unoccupied: '#fcfcfc',
+    lines: 'rgba(0, 0, 0, 0.25)',
     text: '#000000'
 };
 
@@ -146,14 +147,34 @@ class HomePage extends Component {
             let hourInterval = new Date(now - (1000 * 60 * 60 * 24));
             hourInterval.setMinutes(0, 0);
             ctx.font = '11px Calibri';
-            ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             for (let i = 0; i <= 24; i += 3) {
                 ctx.fillStyle = occupancyStatusBarColours.text;
                 const xPos = this.canvas.width - ((-(hourInterval.valueOf() - now)) / (1000 * 60 * 60 * 24) * this.canvas.width);
                 const rawHours = hourInterval.getHours();
-                const text = rawHours > 12 ? rawHours - 12 + ' PM' : rawHours + ' AM';
-                ctx.fillText(text, xPos, 30);
+                let text;
+                if (rawHours === 0) {
+                    text = '12 AM';
+                } else {
+                    text = rawHours > 12 ? rawHours - 12 + ' PM' : rawHours + ' AM';
+                }
+                if (xPos > 0 && xPos < this.canvas.width) {
+                    if ((xPos - ctx.measureText(text).width / 2) < 0) {
+                        ctx.textAlign = 'left';
+                        ctx.fillText(text, 2, 30);
+                    } else if ((xPos + ctx.measureText(text).width / 2) > this.canvas.width) {
+                        ctx.textAlign = 'right';
+                        ctx.fillText(text, this.canvas.width - 2, 30);
+                    } else {
+                        ctx.textAlign = 'center';
+                        ctx.fillText(text, xPos, 30);
+                    }
+                }
+                ctx.strokeStyle = occupancyStatusBarColours.lines;
+                ctx.beginPath();
+                ctx.moveTo(xPos, 0);
+                ctx.lineTo(xPos, 20);
+                ctx.stroke();
                 hourInterval = new Date(hourInterval.valueOf() + (3 * 1000 * 60 * 60));
             }
         }
@@ -262,7 +283,7 @@ class HomePage extends Component {
                                     Occupancy Log
                                 </h5>
                             </div>
-                            <canvas width="100%" height="40" ref={ref => this.canvas = ref}></canvas>
+                            <canvas className='m-1 border' width="100%" height="40" ref={ref => this.canvas = ref}></canvas>
                             <div className="card-body">
                                 {
                                     this.state.occupancyLog.length ?
