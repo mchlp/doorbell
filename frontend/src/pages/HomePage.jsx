@@ -1,6 +1,14 @@
 import React, { Component } from 'react';
 import LoginPage from './LoginPage';
 import SocketContext from '../socket';
+import axios from 'axios';
+
+const occupancyStatusBarColours = {
+    unknown: '#E5E5E5',
+    occupied: '#1FBA00',
+    unoccupied: '#BA0000',
+    text: '#000000'
+};
 
 class HomePage extends Component {
 
@@ -8,6 +16,7 @@ class HomePage extends Component {
         super(props);
         this.state = {
             connected: false,
+            loggedin: false,
             occupied: false,
             doorbell: false,
             check: false,
@@ -15,6 +24,7 @@ class HomePage extends Component {
             knock: false,
             broadcast: false,
             inuse: false,
+            occupancyLog: []
         };
 
         this.props.socket.on('connect', () => {
@@ -48,8 +58,27 @@ class HomePage extends Component {
             });
         });
 
+        this.props.socket.on('occupancy-log-reply', (data) => {
+            this.setState({
+                occupancyLog: data
+            });
+        });
+
+        setInterval(() => {
+            this.props.socket.emit('occupancy-log-get');
+        }, 1000 * 60);
+
         this.handleSoundAction = this.handleSoundAction.bind(this);
         this.handleBroadcast = this.handleBroadcast.bind(this);
+        this.logout = this.logout.bind(this);
+    }
+
+    async logout() {
+        await axios.post('/api/logout', {
+            token: localStorage.getItem('token')
+        });
+        localStorage.removeItem('token');
+        window.location.reload();
     }
 
     async handleSoundAction(e) {
@@ -89,6 +118,45 @@ class HomePage extends Component {
                 this.props.socket.off('broadcast-reply');
             });
         });
+    }
+
+    componentDidUpdate() {
+
+        if (localStorage.getItem('token')) {
+            this.canvas.width = this.canvas.clientWidth;
+            this.canvas.height = this.canvas.clientHeight;
+
+            const ctx = this.canvas.getContext('2d');
+            ctx.fillStyle = occupancyStatusBarColours.unknown;
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+            const now = Date.now();
+            for (const log of this.state.occupancyLog) {
+                console.log(log.time);
+                const barPosition = this.canvas.width - (((now - log.time) / (1000 * 60 * 60 * 24)) * this.canvas.width);
+                if (log.status) {
+                    ctx.fillStyle = occupancyStatusBarColours.occupied;
+                    ctx.fillRect(barPosition, 0, this.canvas.width - barPosition, 20);
+                } else {
+                    ctx.fillStyle = occupancyStatusBarColours.unoccupied;
+                    ctx.fillRect(barPosition, 0, this.canvas.width - barPosition, 20);
+                }
+            }
+
+            let hourInterval = new Date(now - (1000 * 60 * 60 * 24));
+            hourInterval.setMinutes(0, 0);
+            ctx.font = '11px Calibri';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            for (let i = 0; i <= 24; i += 3) {
+                ctx.fillStyle = occupancyStatusBarColours.text;
+                const xPos = this.canvas.width - ((-(hourInterval.valueOf() - now)) / (1000 * 60 * 60 * 24) * this.canvas.width);
+                const rawHours = hourInterval.getHours();
+                const text = rawHours > 12 ? rawHours - 12 + ' PM' : rawHours + ' AM';
+                ctx.fillText(text, xPos, 30);
+                hourInterval = new Date(hourInterval.valueOf() + (3 * 1000 * 60 * 60));
+            }
+        }
     }
 
     render() {
@@ -187,6 +255,37 @@ class HomePage extends Component {
                                     Alarm
                                 </div>
                             }
+                        </button>
+                        <div className="card text-black bg-light my-3">
+                            <div className="card-header">
+                                <h5 className='mb-0'>
+                                    Occupancy Log
+                                </h5>
+                            </div>
+                            <canvas width="100%" height="40" ref={ref => this.canvas = ref}></canvas>
+                            <div className="card-body">
+                                {
+                                    this.state.occupancyLog.length ?
+                                        this.state.occupancyLog.map((log) => {
+                                            return (
+                                                log.time !== 0 ?
+                                                    <p key={log.time} className="card-text">
+                                                        <b>{
+                                                            (new Date(log.time)).toLocaleString('en-US') + ' - '}
+                                                        </b>
+                                                        {(log.status ? 'Occupied' : 'Unoccupied')}
+                                                    </p>
+                                                    :
+                                                    null
+                                            );
+                                        })
+                                        :
+                                        <p>No logs found.</p>
+                                }
+                            </div>
+                        </div>
+                        <button className="btn btn-secondary btn-lg btn-block mb-3" onClick={this.logout}>
+                            Logout
                         </button>
                     </div> :
                     <LoginPage />

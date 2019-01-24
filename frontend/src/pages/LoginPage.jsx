@@ -21,7 +21,6 @@ class LoginPage extends Component {
             token: res.data.token
         });
         this.props.socket.on('authenticate-reply', () => {
-            console.log('done');
             window.location.reload();
             this.props.socket.instance.off('authenticate-reply');
         });
