@@ -8,3 +8,4 @@ Includes:
 - Broadcast message
 - Live occupancy status 
 - Live connection status
+- Occupancy log
