@@ -31,7 +31,7 @@ motionSerial.on('data', function (chunk) {
 
 // set interval to update occupancy status
 setInterval(() => {
-    const curStatus = Date.now() <= state.lastMotion + (config['motion-delay'] * 1000);
+    const curStatus = Date.now() <= state.lastMotion + (config['motion-delay-sec'] * 1000);
     if (curStatus != state.occupied) {
         state.occupied = curStatus;
         io.emit('occupancy-update', {
@@ -161,7 +161,7 @@ app.use(bodyParser.json());
 app.post('/api/login', async (req, res, next) => {
     if (req.body.password === config.password) {
         const token = await genToken(16);
-        tokens[token] = Date.now() + (config['token-expiry'] * 1000);
+        tokens[token] = Date.now() + (config['token-expiry-sec'] * 1000);
         updateTokens();
         res.json({
             'status': 'success',
