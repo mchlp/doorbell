@@ -57,6 +57,7 @@ class HomePage extends Component {
             this.setState({
                 occupied: !!data.occupied
             });
+            this.props.socket.emit('occupancy-log-get');
         });
 
         this.props.socket.on('occupancy-log-reply', (data) => {
