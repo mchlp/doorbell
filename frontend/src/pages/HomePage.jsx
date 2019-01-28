@@ -25,7 +25,11 @@ class HomePage extends Component {
             knock: false,
             broadcast: false,
             inuse: false,
-            occupancyLog: []
+            occupancyLog: [],
+            occupancyBar: {
+                startAtNow: true,
+                startTime: null
+            }
         };
 
         this.props.socket.on('connect', () => {
@@ -61,9 +65,21 @@ class HomePage extends Component {
         });
 
         this.props.socket.on('occupancy-log-reply', (data) => {
-            this.setState({
-                occupancyLog: data
-            });
+            if (this.state.occupancyBar.startAtNow) {
+                this.setState((prevState) => {
+                    return {
+                        occupancyBar: {
+                            ...prevState.occupancyBar,
+                            startTime: Date.now()
+                        },
+                        occupancyLog: data
+                    };
+                });
+            } else {
+                this.setState({
+                    occupancyLog: data
+                });
+            }
         });
 
         setInterval(() => {
@@ -72,6 +88,8 @@ class HomePage extends Component {
 
         this.handleSoundAction = this.handleSoundAction.bind(this);
         this.handleBroadcast = this.handleBroadcast.bind(this);
+        this.updateOccupancyBar = this.updateOccupancyBar.bind(this);
+        this.scrollOccupancyBar = this.scrollOccupancyBar.bind(this);
         this.logout = this.logout.bind(this);
     }
 
@@ -122,73 +140,104 @@ class HomePage extends Component {
         });
     }
 
-    componentDidUpdate() {
-
-        if (localStorage.getItem('token')) {
-
-            const canvasDimensions = this.canvas.getBoundingClientRect();
-            const canvasWidth = canvasDimensions.width;
-            const canvasHeight = canvasDimensions.height;
-
-            const scale = window.devicePixelRatio || 1;
-            this.canvas.width = canvasWidth * scale;
-            this.canvas.height = canvasHeight * scale;
-
-            this.canvas.style.width = canvasWidth + 'px';
-            this.canvas.style.height = canvasHeight + 'px';
-
-            const ctx = this.canvas.getContext('2d');
-            ctx.scale(scale, scale);
-
-            ctx.fillStyle = occupancyStatusBarColours.unknown;
-            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-            const now = Date.now();
-            for (const log of this.state.occupancyLog) {
-                const barPosition = canvasWidth - (((now - log.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
-                if (log.status) {
-                    ctx.fillStyle = occupancyStatusBarColours.occupied;
-                    ctx.fillRect(barPosition + 0.5, 0, canvasWidth - barPosition, 20);
-                } else {
-                    ctx.fillStyle = occupancyStatusBarColours.unoccupied;
-                    ctx.fillRect(barPosition + 0.5, 0, canvasWidth - barPosition, 20);
-                }
-            }
-
-            let hourInterval = new Date(now - (1000 * 60 * 60 * 24));
-            hourInterval.setMinutes(0, 0);
-            ctx.font = '11px Calibri';
-            ctx.textBaseline = 'middle';
-            for (let i = 0; i <= 24; i += 3) {
-                ctx.fillStyle = occupancyStatusBarColours.text;
-                const xPos = canvasWidth - ((-(hourInterval.valueOf() - now)) / (1000 * 60 * 60 * 24) * canvasWidth);
-                const rawHours = hourInterval.getHours();
-                let text;
-                if (rawHours === 0) {
-                    text = '12 AM';
-                } else {
-                    text = rawHours > 12 ? rawHours - 12 + ' PM' : rawHours + ' AM';
-                }
-                if (xPos > 0 && xPos < canvasWidth) {
-                    if ((xPos - ctx.measureText(text).width / 2) < 0) {
-                        ctx.textAlign = 'left';
-                        ctx.fillText(text, 2, 30);
-                    } else if ((xPos + ctx.measureText(text).width / 2) > canvasWidth) {
-                        ctx.textAlign = 'right';
-                        ctx.fillText(text, canvasWidth - 2, 30);
-                    } else {
-                        ctx.textAlign = 'center';
-                        ctx.fillText(text, xPos, 30);
-                    }
-                }
-                ctx.strokeStyle = occupancyStatusBarColours.lines;
-                ctx.beginPath();
-                ctx.moveTo(xPos, 0);
-                ctx.lineTo(xPos, 20);
-                ctx.stroke();
-                hourInterval = new Date(hourInterval.valueOf() + (3 * 1000 * 60 * 60));
+    scrollOccupancyBar(e) {
+        e.preventDefault();
+        const scrollMovement = 1000 * 60 * 2;
+        const now = Date.now();
+        let startAtNow = false;
+        let oldStartTime = this.state.occupancyBar.startTime;
+        let newStartTime;
+        if (e.deltaY < 0) {
+            newStartTime = oldStartTime - scrollMovement;
+        } else {
+            newStartTime = oldStartTime + scrollMovement;
+            if (newStartTime > now) {
+                newStartTime = now;
+                startAtNow = true;
             }
         }
+        this.setState({
+            occupancyBar: {
+                startAtNow,
+                startTime: newStartTime
+            },
+        });
+        console.log(e);
+    }
+
+    updateOccupancyBar() {
+        const canvasDimensions = this.canvas.getBoundingClientRect();
+        const canvasWidth = canvasDimensions.width;
+        const canvasHeight = canvasDimensions.height;
+
+        const scale = window.devicePixelRatio || 1;
+        this.canvas.width = canvasWidth * scale;
+        this.canvas.height = canvasHeight * scale;
+
+        this.canvas.style.width = canvasWidth + 'px';
+        this.canvas.style.height = canvasHeight + 'px';
+
+        const ctx = this.canvas.getContext('2d');
+        ctx.scale(scale, scale);
+
+        ctx.fillStyle = occupancyStatusBarColours.unknown;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        const startTime = this.state.occupancyBar.startTime;
+        for (const log of this.state.occupancyLog) {
+            const barPosition = canvasWidth - (((startTime - log.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
+            if (log.status) {
+                ctx.fillStyle = occupancyStatusBarColours.occupied;
+                ctx.fillRect(barPosition + 0.5, 0, canvasWidth - barPosition, 20);
+            } else {
+                ctx.fillStyle = occupancyStatusBarColours.unoccupied;
+                ctx.fillRect(barPosition + 0.5, 0, canvasWidth - barPosition, 20);
+            }
+        }
+
+        let hourInterval = new Date(startTime - (1000 * 60 * 60 * 24));
+        hourInterval.setMinutes(0, 0);
+        ctx.font = '11px Calibri';
+        ctx.textBaseline = 'middle';
+        for (let i = 0; i <= 24; i += 3) {
+            ctx.fillStyle = occupancyStatusBarColours.text;
+            const xPos = canvasWidth - ((-(hourInterval.valueOf() - startTime)) / (1000 * 60 * 60 * 24) * canvasWidth);
+            const rawHours = hourInterval.getHours();
+            let text;
+            if (rawHours === 0) {
+                text = '12 AM';
+            } else {
+                text = rawHours > 12 ? rawHours - 12 + ' PM' : rawHours + ' AM';
+            }
+            if (xPos > 0 && xPos < canvasWidth) {
+                if ((xPos - ctx.measureText(text).width / 2) < 0) {
+                    ctx.textAlign = 'left';
+                    ctx.fillText(text, 2, 30);
+                } else if ((xPos + ctx.measureText(text).width / 2) > canvasWidth) {
+                    ctx.textAlign = 'right';
+                    ctx.fillText(text, canvasWidth - 2, 30);
+                } else {
+                    ctx.textAlign = 'center';
+                    ctx.fillText(text, xPos, 30);
+                }
+            }
+            ctx.strokeStyle = occupancyStatusBarColours.lines;
+            ctx.beginPath();
+            ctx.moveTo(xPos, 0);
+            ctx.lineTo(xPos, 20);
+            ctx.stroke();
+            hourInterval = new Date(hourInterval.valueOf() + (3 * 1000 * 60 * 60));
+        }
+    }
+
+    componentDidUpdate() {
+        if (localStorage.getItem('token')) {
+            this.updateOccupancyBar();
+        }
+    }
+
+    componentDidMount() {
+        this.canvas.addEventListener('wheel', this.scrollOccupancyBar);
     }
 
     render() {
