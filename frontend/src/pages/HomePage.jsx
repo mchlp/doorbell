@@ -140,14 +140,13 @@ class HomePage extends Component {
         });
     }
 
-    scrollOccupancyBar(e) {
-        e.preventDefault();
-        const scrollMovement = 1000 * 60 * 2;
+    scrollOccupancyBar(move) {
+        const scrollMovement = 1000 * 60 * 4;
         const now = Date.now();
         let startAtNow = false;
         let oldStartTime = this.state.occupancyBar.startTime;
         let newStartTime;
-        if (e.deltaY < 0) {
+        if (move < 0) {
             newStartTime = oldStartTime - scrollMovement;
         } else {
             newStartTime = oldStartTime + scrollMovement;
@@ -162,7 +161,6 @@ class HomePage extends Component {
                 startTime: newStartTime
             },
         });
-        console.log(e);
     }
 
     updateOccupancyBar() {
@@ -237,7 +235,19 @@ class HomePage extends Component {
     }
 
     componentDidMount() {
-        this.canvas.addEventListener('wheel', this.scrollOccupancyBar);
+        this.canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            this.scrollOccupancyBar(e.deltaY);
+        });
+        this.canvas.addEventListener('touchstart', (e) => {
+            this.lastTouchX = e.touches[0].clientX;
+        });
+        this.canvas.addEventListener('touchmove', (e) => {
+            const curTouchX = e.touches[0].clientX;
+            this.scrollOccupancyBar(this.lastTouchX - curTouchX);
+            this.lastTouchX = curTouchX;
+            console.log(e);
+        });
     }
 
     render() {
