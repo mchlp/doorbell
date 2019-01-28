@@ -125,23 +125,33 @@ class HomePage extends Component {
     componentDidUpdate() {
 
         if (localStorage.getItem('token')) {
-            this.canvas.width = this.canvas.clientWidth;
-            this.canvas.height = this.canvas.clientHeight;
+
+            const canvasDimensions = this.canvas.getBoundingClientRect();
+            const canvasWidth = canvasDimensions.width;
+            const canvasHeight = canvasDimensions.height;
+
+            const scale = window.devicePixelRatio || 1;
+            this.canvas.width = canvasWidth * scale;
+            this.canvas.height = canvasHeight * scale;
+
+            this.canvas.style.width = canvasWidth + 'px';
+            this.canvas.style.height = canvasHeight + 'px';
 
             const ctx = this.canvas.getContext('2d');
+            ctx.scale(scale, scale);
+
             ctx.fillStyle = occupancyStatusBarColours.unknown;
-            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
             const now = Date.now();
             for (const log of this.state.occupancyLog) {
-                console.log(log.time);
-                const barPosition = this.canvas.width - (((now - log.time) / (1000 * 60 * 60 * 24)) * this.canvas.width);
+                const barPosition = canvasWidth - (((now - log.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
                 if (log.status) {
                     ctx.fillStyle = occupancyStatusBarColours.occupied;
-                    ctx.fillRect(barPosition, 0, this.canvas.width - barPosition, 20);
+                    ctx.fillRect(barPosition + 0.5, 0, canvasWidth - barPosition, 20);
                 } else {
                     ctx.fillStyle = occupancyStatusBarColours.unoccupied;
-                    ctx.fillRect(barPosition, 0, this.canvas.width - barPosition, 20);
+                    ctx.fillRect(barPosition + 0.5, 0, canvasWidth - barPosition, 20);
                 }
             }
 
@@ -151,7 +161,7 @@ class HomePage extends Component {
             ctx.textBaseline = 'middle';
             for (let i = 0; i <= 24; i += 3) {
                 ctx.fillStyle = occupancyStatusBarColours.text;
-                const xPos = this.canvas.width - ((-(hourInterval.valueOf() - now)) / (1000 * 60 * 60 * 24) * this.canvas.width);
+                const xPos = canvasWidth - ((-(hourInterval.valueOf() - now)) / (1000 * 60 * 60 * 24) * canvasWidth);
                 const rawHours = hourInterval.getHours();
                 let text;
                 if (rawHours === 0) {
@@ -159,13 +169,13 @@ class HomePage extends Component {
                 } else {
                     text = rawHours > 12 ? rawHours - 12 + ' PM' : rawHours + ' AM';
                 }
-                if (xPos > 0 && xPos < this.canvas.width) {
+                if (xPos > 0 && xPos < canvasWidth) {
                     if ((xPos - ctx.measureText(text).width / 2) < 0) {
                         ctx.textAlign = 'left';
                         ctx.fillText(text, 2, 30);
-                    } else if ((xPos + ctx.measureText(text).width / 2) > this.canvas.width) {
+                    } else if ((xPos + ctx.measureText(text).width / 2) > canvasWidth) {
                         ctx.textAlign = 'right';
-                        ctx.fillText(text, this.canvas.width - 2, 30);
+                        ctx.fillText(text, canvasWidth - 2, 30);
                     } else {
                         ctx.textAlign = 'center';
                         ctx.fillText(text, xPos, 30);
