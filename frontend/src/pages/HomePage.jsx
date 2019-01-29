@@ -11,6 +11,10 @@ const occupancyStatusBarColours = {
     text: '#000000'
 };
 
+const occupancyBarConfig = {
+    markedIntervals: [3, 6, 9, 12]
+};
+
 class HomePage extends Component {
 
     constructor(props) {
@@ -141,19 +145,15 @@ class HomePage extends Component {
     }
 
     scrollOccupancyBar(move) {
-        const scrollMovement = 1000 * 60 * 4;
+        const scrollMovement = 1000 * 60 * 60;
         const now = Date.now();
         let startAtNow = false;
         let oldStartTime = this.state.occupancyBar.startTime;
         let newStartTime;
-        if (move < 0) {
-            newStartTime = oldStartTime - scrollMovement;
-        } else {
-            newStartTime = oldStartTime + scrollMovement;
-            if (newStartTime > now) {
-                newStartTime = now;
-                startAtNow = true;
-            }
+        newStartTime = oldStartTime + (scrollMovement * move);
+        if (newStartTime > now) {
+            newStartTime = now;
+            startAtNow = true;
         }
         this.setState({
             occupancyBar: {
@@ -197,35 +197,46 @@ class HomePage extends Component {
         hourInterval.setMinutes(0, 0);
         ctx.font = '11px Calibri';
         ctx.textBaseline = 'middle';
-        for (let i = 0; i <= 24; i += 3) {
-            ctx.fillStyle = occupancyStatusBarColours.text;
-            const xPos = canvasWidth - ((-(hourInterval.valueOf() - startTime)) / (1000 * 60 * 60 * 24) * canvasWidth);
+
+        for (let i = 0; i <= 24; i++) {
+
             const rawHours = hourInterval.getHours();
-            let text;
-            if (rawHours === 0) {
-                text = '12 AM';
-            } else {
-                text = rawHours > 12 ? rawHours - 12 + ' PM' : rawHours + ' AM';
+
+            let hourNum = rawHours > 12 ? rawHours - 12 : rawHours;
+            if (hourNum === 0) {
+                hourNum = 12;
             }
-            if (xPos > 0 && xPos < canvasWidth) {
-                if ((xPos - ctx.measureText(text).width / 2) < 0) {
-                    ctx.textAlign = 'left';
-                    ctx.fillText(text, 2, 30);
-                } else if ((xPos + ctx.measureText(text).width / 2) > canvasWidth) {
-                    ctx.textAlign = 'right';
-                    ctx.fillText(text, canvasWidth - 2, 30);
-                } else {
-                    ctx.textAlign = 'center';
-                    ctx.fillText(text, xPos, 30);
+
+            if (occupancyBarConfig.markedIntervals.includes(hourNum)) {
+                ctx.fillStyle = occupancyStatusBarColours.text;
+                const xPos = canvasWidth - ((-(hourInterval.valueOf() - startTime)) / (1000 * 60 * 60 * 24) * canvasWidth);
+                let text;
+                text = rawHours > 12 ? hourNum + ' PM' : hourNum + ' AM';
+                if (xPos > 0 && xPos < canvasWidth) {
+                    if ((xPos - ctx.measureText(text).width / 2) < 0) {
+                        ctx.textAlign = 'left';
+                        ctx.fillText(text, 2, 30);
+                    } else if ((xPos + ctx.measureText(text).width / 2) > canvasWidth) {
+                        ctx.textAlign = 'right';
+                        ctx.fillText(text, canvasWidth - 2, 30);
+                    } else {
+                        ctx.textAlign = 'center';
+                        ctx.fillText(text, xPos, 30);
+                    }
                 }
+                ctx.strokeStyle = occupancyStatusBarColours.lines;
+                ctx.beginPath();
+                ctx.moveTo(xPos, 0);
+                ctx.lineTo(xPos, 20);
+                ctx.stroke();
             }
-            ctx.strokeStyle = occupancyStatusBarColours.lines;
-            ctx.beginPath();
-            ctx.moveTo(xPos, 0);
-            ctx.lineTo(xPos, 20);
-            ctx.stroke();
-            hourInterval = new Date(hourInterval.valueOf() + (3 * 1000 * 60 * 60));
+
+            hourInterval = new Date(hourInterval.valueOf() + (1000 * 60 * 60));
         }
+
+        ctx.fillStyle = occupancyStatusBarColours.text;
+        ctx.textAlign = 'center';
+        ctx.fillText(new Date(startTime).toDateString(), canvasWidth/2, 50);
     }
 
     componentDidUpdate() {
@@ -238,16 +249,15 @@ class HomePage extends Component {
         if (localStorage.getItem('token')) {
             this.canvas.addEventListener('wheel', (e) => {
                 e.preventDefault();
-                this.scrollOccupancyBar(e.deltaY);
+                this.scrollOccupancyBar(e.deltaY > 0 ? 1 : -1);
             });
             this.canvas.addEventListener('touchstart', (e) => {
                 this.lastTouchX = e.touches[0].clientX;
             });
             this.canvas.addEventListener('touchmove', (e) => {
                 const curTouchX = e.touches[0].clientX;
-                this.scrollOccupancyBar(this.lastTouchX - curTouchX);
+                this.scrollOccupancyBar((this.lastTouchX - curTouchX) / 10);
                 this.lastTouchX = curTouchX;
-                console.log(e);
             });
         }
     }
@@ -355,7 +365,7 @@ class HomePage extends Component {
                                     Occupancy Log
                                 </h5>
                             </div>
-                            <canvas className='m-1 border' width="100%" height="40" ref={ref => this.canvas = ref}></canvas>
+                            <canvas className='m-1 border' width="100%" height="60" ref={ref => this.canvas = ref}></canvas>
                             <div className="card-body">
                                 {
                                     this.state.occupancyLog.length ?
