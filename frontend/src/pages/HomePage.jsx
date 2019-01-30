@@ -2,17 +2,28 @@ import React, { Component } from 'react';
 import LoginPage from './LoginPage';
 import SocketContext from '../socket';
 import axios from 'axios';
+import SunCalc from 'suncalc';
 
 const occupancyStatusBarColours = {
     unknown: '#fcfcfc',
     occupied: '#06d117',
     unoccupied: '#fcfcfc',
-    lines: 'rgba(0, 0, 0, 0.25)',
-    text: '#000000'
+    lines: 'rgba(0, 0, 0, 0.4)',
+    text: '#000000',
+    night: 'rgba(0, 0, 0, 0.1)',
+    school: 'rgba(63, 73, 255, 0.1)',
 };
 
 const occupancyBarConfig = {
-    markedIntervals: [3, 6, 9, 12]
+    markedIntervals: [3, 6, 9, 12],
+    schoolHours: {
+        start: 8.75,
+        end: 15
+    },
+    location: {
+        lat: 43.735970,
+        lon: -79.339280
+    }
 };
 
 class HomePage extends Component {
@@ -89,15 +100,9 @@ class HomePage extends Component {
         setInterval(() => {
             this.props.socket.emit('occupancy-log-get');
         }, 1000 * 60);
-
-        this.handleSoundAction = this.handleSoundAction.bind(this);
-        this.handleBroadcast = this.handleBroadcast.bind(this);
-        this.updateOccupancyBar = this.updateOccupancyBar.bind(this);
-        this.scrollOccupancyBar = this.scrollOccupancyBar.bind(this);
-        this.logout = this.logout.bind(this);
     }
 
-    async logout() {
+    logout = async () => {
         await axios.post('/api/logout', {
             token: localStorage.getItem('token')
         });
@@ -105,7 +110,7 @@ class HomePage extends Component {
         window.location.reload();
     }
 
-    async handleSoundAction(e) {
+    handleSoundAction = async (e) => {
         const type = e.currentTarget.getAttribute('type');
         this.setState({
             [type]: true,
@@ -122,7 +127,7 @@ class HomePage extends Component {
         });
     }
 
-    async handleBroadcast(e) {
+    handleBroadcast = async (e) => {
         e.preventDefault();
         this.setState({
             broadcast: true,
@@ -144,8 +149,8 @@ class HomePage extends Component {
         });
     }
 
-    scrollOccupancyBar(move) {
-        const scrollMovement = 1000 * 60 * 60;
+    scrollOccupancyBar = (move) => {
+        const scrollMovement = 1000 * 60 * 15;
         const now = Date.now();
         let startAtNow = false;
         let oldStartTime = this.state.occupancyBar.startTime;
@@ -163,7 +168,7 @@ class HomePage extends Component {
         });
     }
 
-    updateOccupancyBar() {
+    updateOccupancyBar = () => {
         const canvasDimensions = this.canvas.getBoundingClientRect();
         const canvasWidth = canvasDimensions.width;
         const canvasHeight = canvasDimensions.height;
@@ -178,21 +183,73 @@ class HomePage extends Component {
         const ctx = this.canvas.getContext('2d');
         ctx.scale(scale, scale);
 
+        // draw background
         ctx.fillStyle = occupancyStatusBarColours.unknown;
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
+        // drawing occupancy fill
         const startTime = this.state.occupancyBar.startTime;
         for (const log of this.state.occupancyLog) {
             const barPosition = canvasWidth - (((startTime - log.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
             if (log.status) {
                 ctx.fillStyle = occupancyStatusBarColours.occupied;
-                ctx.fillRect(barPosition + 0.5, 0, canvasWidth - barPosition, 20);
+                ctx.fillRect(barPosition, 0, canvasWidth - barPosition, 20);
             } else {
                 ctx.fillStyle = occupancyStatusBarColours.unoccupied;
-                ctx.fillRect(barPosition + 0.5, 0, canvasWidth - barPosition, 20);
+                ctx.fillRect(barPosition, 0, canvasWidth - barPosition, 20);
             }
         }
 
+        // draw school time background
+        ctx.fillStyle = occupancyStatusBarColours.school;
+        const schoolStartHours = Math.floor(occupancyBarConfig.schoolHours.start);
+        const schoolStartMinutes = (occupancyBarConfig.schoolHours.start - schoolStartHours) * 60;
+        const schoolEndHours = Math.floor(occupancyBarConfig.schoolHours.end);
+        const schoolEndMinutes = (occupancyBarConfig.schoolHours.end - schoolEndHours) * 60;
+
+        for (let i = 0; i < 2; i++) {
+            let schoolStart = new Date(startTime - (1000 * 60 * 60 * 24 * i)).setHours(schoolStartHours, schoolStartMinutes, 0);
+            let schoolEnd = new Date(startTime - (1000 * 60 * 60 * 24 * i)).setHours(schoolEndHours, schoolEndMinutes, 0);
+
+            let schoolStartX = canvasWidth - (((startTime - schoolStart) / (1000 * 60 * 60 * 24)) * canvasWidth);
+            let schoolEndX = canvasWidth - (((startTime - schoolEnd) / (1000 * 60 * 60 * 24)) * canvasWidth);
+
+            if (schoolStartX < 0 && schoolEndX > 0) {
+                schoolStartX = 0;
+            }
+
+            let schoolWidth = schoolEndX - schoolStartX;
+
+            ctx.fillRect(schoolStartX, 0, schoolWidth, 20);
+        }
+
+        // draw nighttime background
+        ctx.fillStyle = occupancyStatusBarColours.night;
+
+        for (let i = 0; i < 2; i++) {
+
+            const checkNightDate = new Date(startTime - (1000 * 60 * 60 * 24 * i));
+            const checkDayDate = new Date(startTime - (1000 * 60 * 60 * 24 * (i - 1)));
+
+            const sunNightTimes = SunCalc.getTimes(checkNightDate, occupancyBarConfig.location.lat, occupancyBarConfig.location.lon);
+            const sunDayTimes = SunCalc.getTimes(checkDayDate, occupancyBarConfig.location.lat, occupancyBarConfig.location.lon);
+
+            const sunRiseTime = sunDayTimes.sunrise;
+            const sunSetTime = sunNightTimes.sunset;
+
+            let nightStartX = canvasWidth - (((startTime - sunRiseTime) / (1000 * 60 * 60 * 24)) * canvasWidth);
+            let nightEndX = canvasWidth - (((startTime - sunSetTime) / (1000 * 60 * 60 * 24)) * canvasWidth);
+
+            let nightWidth = nightEndX - nightStartX;
+
+            if (nightStartX < 0 && nightEndX > 0) {
+                nightStartX = 0;
+            }
+
+            ctx.fillRect(nightStartX, 0, nightWidth, 20);
+        }
+
+        // draw hour interval lines
         let hourInterval = new Date(startTime - (1000 * 60 * 60 * 24));
         hourInterval.setMinutes(0, 0);
         ctx.font = '11px Calibri';
@@ -211,7 +268,10 @@ class HomePage extends Component {
                 ctx.fillStyle = occupancyStatusBarColours.text;
                 const xPos = canvasWidth - ((-(hourInterval.valueOf() - startTime)) / (1000 * 60 * 60 * 24) * canvasWidth);
                 let text;
-                text = rawHours > 12 ? hourNum + ' PM' : hourNum + ' AM';
+                text = rawHours >= 12 ? hourNum + ' PM' : hourNum + ' AM';
+                if (rawHours === 24) {
+                    text = '12 AM';
+                }
                 if (xPos > 0 && xPos < canvasWidth) {
                     if ((xPos - ctx.measureText(text).width / 2) < 0) {
                         ctx.textAlign = 'left';
@@ -234,9 +294,10 @@ class HomePage extends Component {
             hourInterval = new Date(hourInterval.valueOf() + (1000 * 60 * 60));
         }
 
+        // draw date
         ctx.fillStyle = occupancyStatusBarColours.text;
         ctx.textAlign = 'center';
-        ctx.fillText(new Date(startTime).toDateString(), canvasWidth/2, 50);
+        ctx.fillText(new Date(startTime).toDateString(), canvasWidth / 2, 50);
     }
 
     componentDidUpdate() {
@@ -249,15 +310,47 @@ class HomePage extends Component {
         if (localStorage.getItem('token')) {
             this.canvas.addEventListener('wheel', (e) => {
                 e.preventDefault();
-                this.scrollOccupancyBar(e.deltaY > 0 ? 1 : -1);
+                this.scrollOccupancyBar(e.deltaY > 0 ? 5 : -5);
             });
             this.canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
                 this.lastTouchX = e.touches[0].clientX;
             });
             this.canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
                 const curTouchX = e.touches[0].clientX;
                 this.scrollOccupancyBar((this.lastTouchX - curTouchX) / 10);
                 this.lastTouchX = curTouchX;
+            });
+            this.canvas.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                this.lastTouchX = e.clientX;
+
+                const canvasMouseMoveListener = (e) => {
+                    const curTouchX = e.clientX;
+                    this.scrollOccupancyBar((this.lastTouchX - curTouchX) / 10);
+                    this.lastTouchX = curTouchX;
+                };
+
+                const canvasMouseUpListener = () => {
+                    removeCanvasListener();
+                };
+
+                const canvasMouseLeaveListener = () => {
+                    removeCanvasListener();
+                };
+
+                const removeCanvasListener = () => {
+                    console.log('remove');
+                    window.removeEventListener('mousemove', canvasMouseMoveListener, true);
+                    window.removeEventListener('mouseup', canvasMouseUpListener, true);
+                    window.removeEventListener('mouseleave', canvasMouseLeaveListener, true);
+                };
+
+                window.addEventListener('mousemove', canvasMouseMoveListener, true);
+                window.addEventListener('mouseup', canvasMouseUpListener, true);
+                window.addEventListener('mouseleave', canvasMouseLeaveListener, true);
+
             });
         }
     }
@@ -365,7 +458,7 @@ class HomePage extends Component {
                                     Occupancy Log
                                 </h5>
                             </div>
-                            <canvas className='m-1 border' width="100%" height="60" ref={ref => this.canvas = ref}></canvas>
+                            <canvas className='m-1 border' width="100%" height="60" ref={ref => this.canvas = ref} onResize={this.updateOccupancyBar}></canvas>
                             <div className="card-body">
                                 {
                                     this.state.occupancyLog.length ?
