@@ -341,7 +341,6 @@ class HomePage extends Component {
                 };
 
                 const removeCanvasListener = () => {
-                    console.log('remove');
                     window.removeEventListener('mousemove', canvasMouseMoveListener, true);
                     window.removeEventListener('mouseup', canvasMouseUpListener, true);
                     window.removeEventListener('mouseleave', canvasMouseLeaveListener, true);
