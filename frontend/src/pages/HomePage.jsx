@@ -8,10 +8,12 @@ const occupancyStatusBarColours = {
     unknown: '#fcfcfc',
     occupied: '#06d117',
     unoccupied: '#fcfcfc',
-    lines: 'rgba(0, 0, 0, 0.4)',
+    nightlines: '#d1c892',
+    daylines: 'rgba(119, 119, 119, 0.7)',
     text: '#000000',
-    night: 'rgba(0, 0, 0, 0.1)',
-    school: 'rgba(63, 73, 255, 0.1)',
+    night: '#222222',
+    day: '#c1e3f4',
+    school: '#a1bcc9',
 };
 
 const occupancyBarConfig = {
@@ -186,18 +188,35 @@ class HomePage extends Component {
         // draw background
         ctx.fillStyle = occupancyStatusBarColours.unknown;
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-        // drawing occupancy fill
         const startTime = this.state.occupancyBar.startTime;
-        for (const log of this.state.occupancyLog) {
-            const barPosition = canvasWidth - (((startTime - log.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
-            if (log.status) {
-                ctx.fillStyle = occupancyStatusBarColours.occupied;
-                ctx.fillRect(barPosition, 0, canvasWidth - barPosition, 20);
-            } else {
-                ctx.fillStyle = occupancyStatusBarColours.unoccupied;
-                ctx.fillRect(barPosition, 0, canvasWidth - barPosition, 20);
+
+
+
+        // draw nighttime and day background
+        for (let i = 0; i < 3; i++) {
+
+            const checkNightDate = new Date(startTime - (1000 * 60 * 60 * 24 * i));
+            const checkDayDate = new Date(startTime - (1000 * 60 * 60 * 24 * (i - 1)));
+
+            const sunNightTimes = SunCalc.getTimes(checkNightDate, occupancyBarConfig.location.lat, occupancyBarConfig.location.lon);
+            const sunDayTimes = SunCalc.getTimes(checkDayDate, occupancyBarConfig.location.lat, occupancyBarConfig.location.lon);
+
+            const sunRiseTime = sunDayTimes.sunrise;
+            const sunSetTime = sunNightTimes.sunset;
+
+            let nightStartX = canvasWidth - (((startTime - sunRiseTime) / (1000 * 60 * 60 * 24)) * canvasWidth);
+            let nightEndX = canvasWidth - (((startTime - sunSetTime) / (1000 * 60 * 60 * 24)) * canvasWidth);
+
+            let nightWidth = nightEndX - nightStartX;
+
+            if (nightStartX < 0 && nightEndX > 0) {
+                nightStartX = 0;
             }
+
+            ctx.fillStyle = occupancyStatusBarColours.night;
+            ctx.fillRect(nightStartX, 0, nightWidth, 20);
+            ctx.fillStyle = occupancyStatusBarColours.day;
+            ctx.fillRect(nightEndX, 0, nightWidth, 20);
         }
 
         // draw school time background
@@ -223,30 +242,24 @@ class HomePage extends Component {
             ctx.fillRect(schoolStartX, 0, schoolWidth, 20);
         }
 
-        // draw nighttime background
-        ctx.fillStyle = occupancyStatusBarColours.night;
+        // drawing occupancy fill
+        for (let i = 0; i < this.state.occupancyLog.length; i++) {
+            const curLog = this.state.occupancyLog[i];
+            const barStartPosition = canvasWidth - (((startTime - curLog.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
+            let barEndPosition;
 
-        for (let i = 0; i < 2; i++) {
-
-            const checkNightDate = new Date(startTime - (1000 * 60 * 60 * 24 * i));
-            const checkDayDate = new Date(startTime - (1000 * 60 * 60 * 24 * (i - 1)));
-
-            const sunNightTimes = SunCalc.getTimes(checkNightDate, occupancyBarConfig.location.lat, occupancyBarConfig.location.lon);
-            const sunDayTimes = SunCalc.getTimes(checkDayDate, occupancyBarConfig.location.lat, occupancyBarConfig.location.lon);
-
-            const sunRiseTime = sunDayTimes.sunrise;
-            const sunSetTime = sunNightTimes.sunset;
-
-            let nightStartX = canvasWidth - (((startTime - sunRiseTime) / (1000 * 60 * 60 * 24)) * canvasWidth);
-            let nightEndX = canvasWidth - (((startTime - sunSetTime) / (1000 * 60 * 60 * 24)) * canvasWidth);
-
-            let nightWidth = nightEndX - nightStartX;
-
-            if (nightStartX < 0 && nightEndX > 0) {
-                nightStartX = 0;
+            if (i < this.state.occupancyLog.length - 1) {
+                const nextLog = this.state.occupancyLog[i + 1];
+                barEndPosition = canvasWidth - (((startTime - nextLog.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
+            } else {
+                barEndPosition = canvasWidth;
+                console.log('end');
             }
 
-            ctx.fillRect(nightStartX, 0, nightWidth, 20);
+            const width = barEndPosition - barStartPosition;
+
+            ctx.fillStyle = occupancyStatusBarColours.occupied;
+            ctx.fillRect(barStartPosition, 0, width, 20);
         }
 
         // draw hour interval lines
@@ -284,7 +297,19 @@ class HomePage extends Component {
                         ctx.fillText(text, xPos, 30);
                     }
                 }
-                ctx.strokeStyle = occupancyStatusBarColours.lines;
+
+                const sunTimes = SunCalc.getTimes(hourInterval, occupancyBarConfig.location.lat, occupancyBarConfig.location.lon);
+
+                const sunRiseTime = sunTimes.sunrise;
+                const sunSetTime = sunTimes.sunset;
+
+                if (hourInterval.valueOf() > sunRiseTime.valueOf() && hourInterval.valueOf() < sunSetTime.valueOf()) {
+                    console.log('day');
+                    ctx.strokeStyle = occupancyStatusBarColours.daylines;
+                } else {
+                    console.log('night');
+                    ctx.strokeStyle = occupancyStatusBarColours.nightlines;
+                }
                 ctx.beginPath();
                 ctx.moveTo(xPos, 0);
                 ctx.lineTo(xPos, 20);
