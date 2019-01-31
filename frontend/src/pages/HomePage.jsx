@@ -258,8 +258,6 @@ class HomePage extends Component {
                 }
 
                 const width = barEndPosition - barStartPosition;
-                console.log(barStartPosition, barEndPosition, width);
-
                 ctx.fillStyle = occupancyStatusBarColours.occupied;
                 ctx.fillRect(barStartPosition, 0, width, 20);
             }
