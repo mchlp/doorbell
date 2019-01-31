@@ -247,15 +247,18 @@ class HomePage extends Component {
             const curLog = this.state.occupancyLog[i];
             if (curLog.status) {
                 const barStartPosition = canvasWidth - (((startTime - curLog.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
-                let barEndPosition;
-
-                barEndPosition = canvasWidth;
-                for (let j = i + 1; j < this.state.occupancyLog.length - 1; j++) {
+                let barEndPosition = canvasWidth;
+                for (let j = i + 1; j < this.state.occupancyLog.length; j++) {
                     const nextLog = this.state.occupancyLog[j];
-                    barEndPosition = canvasWidth - (((startTime - nextLog.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
+                    if (!nextLog.status) {
+                        barEndPosition = canvasWidth - (((startTime - nextLog.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
+                        i = j;
+                        break;
+                    }
                 }
 
                 const width = barEndPosition - barStartPosition;
+                console.log(barStartPosition, barEndPosition, width);
 
                 ctx.fillStyle = occupancyStatusBarColours.occupied;
                 ctx.fillRect(barStartPosition, 0, width, 20);
@@ -304,10 +307,8 @@ class HomePage extends Component {
                 const sunSetTime = sunTimes.sunset;
 
                 if (hourInterval.valueOf() > sunRiseTime.valueOf() && hourInterval.valueOf() < sunSetTime.valueOf()) {
-                    console.log('day');
                     ctx.strokeStyle = occupancyStatusBarColours.daylines;
                 } else {
-                    console.log('night');
                     ctx.strokeStyle = occupancyStatusBarColours.nightlines;
                 }
                 ctx.beginPath();
