@@ -4,20 +4,27 @@ import SocketContext from '../socket';
 import axios from 'axios';
 import SunCalc from 'suncalc';
 
-const occupancyStatusBarColours = {
-    unknown: '#fcfcfc',
-    occupied: '#06d117',
-    unoccupied: '#fcfcfc',
-    nightlines: '#d1c892',
-    daylines: 'rgba(119, 119, 119, 0.7)',
-    text: '#000000',
-    night: '#222222',
-    day: '#c1e3f4',
-    school: '#a1bcc9',
-};
-
 const occupancyBarConfig = {
-    markedIntervals: [3, 6, 9, 12],
+    colours: {
+        unknown: '#fcfcfc',
+        occupied: '#06d117',
+        unoccupied: '#fcfcfc',
+        nightlines: '#d1c892',
+        daylines: 'rgba(119, 119, 119, 0.7)',
+        text: '#000000',
+        night: '#222222',
+        day: '#c1e3f4',
+        school: '#a1bcc9',
+    },
+    font: {
+        hourLabel: 'Segoe UI 11',
+        dayLabel: 'Segoe UI 12'
+    },
+    thickness: {
+        hourInterval: 1,
+        dayInterval: 2
+    },
+    markedIntervals: [3, 6, 9, 12, 15, 18, 21, 24],
     schoolHours: {
         start: 8.75,
         end: 15
@@ -186,7 +193,7 @@ class HomePage extends Component {
         ctx.scale(scale, scale);
 
         // draw background
-        ctx.fillStyle = occupancyStatusBarColours.unknown;
+        ctx.fillStyle = occupancyBarConfig.colours.unknown;
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         const startTime = this.state.occupancyBar.startTime;
 
@@ -213,14 +220,14 @@ class HomePage extends Component {
                 nightStartX = 0;
             }
 
-            ctx.fillStyle = occupancyStatusBarColours.night;
+            ctx.fillStyle = occupancyBarConfig.colours.night;
             ctx.fillRect(nightStartX, 0, nightWidth, 20);
-            ctx.fillStyle = occupancyStatusBarColours.day;
+            ctx.fillStyle = occupancyBarConfig.colours.day;
             ctx.fillRect(nightEndX, 0, nightWidth, 20);
         }
 
         // draw school time background
-        ctx.fillStyle = occupancyStatusBarColours.school;
+        ctx.fillStyle = occupancyBarConfig.colours.school;
         const schoolStartHours = Math.floor(occupancyBarConfig.schoolHours.start);
         const schoolStartMinutes = (occupancyBarConfig.schoolHours.start - schoolStartHours) * 60;
         const schoolEndHours = Math.floor(occupancyBarConfig.schoolHours.end);
@@ -258,7 +265,7 @@ class HomePage extends Component {
                 }
 
                 const width = barEndPosition - barStartPosition;
-                ctx.fillStyle = occupancyStatusBarColours.occupied;
+                ctx.fillStyle = occupancyBarConfig.colours.occupied;
                 ctx.fillRect(barStartPosition, 0, width, 20);
             }
         }
@@ -266,7 +273,6 @@ class HomePage extends Component {
         // draw hour interval lines
         let hourInterval = new Date(startTime - (1000 * 60 * 60 * 24));
         hourInterval.setMinutes(0, 0);
-        ctx.font = '11px Calibri';
         ctx.textBaseline = 'middle';
 
         for (let i = 0; i <= 24; i++) {
@@ -275,17 +281,22 @@ class HomePage extends Component {
 
             let hourNum = rawHours > 12 ? rawHours - 12 : rawHours;
             if (hourNum === 0) {
-                hourNum = 12;
+                hourNum = 24;
             }
 
             if (occupancyBarConfig.markedIntervals.includes(hourNum)) {
-                ctx.fillStyle = occupancyStatusBarColours.text;
+                ctx.fillStyle = occupancyBarConfig.colours.text;
                 const xPos = canvasWidth - ((-(hourInterval.valueOf() - startTime)) / (1000 * 60 * 60 * 24) * canvasWidth);
                 let text;
                 text = rawHours >= 12 ? hourNum + ' PM' : hourNum + ' AM';
-                if (rawHours === 24) {
+                if (hourNum === 24) {
                     text = '12 AM';
+                    ctx.lineWidth = occupancyBarConfig.thickness.dayInterval;
+                } else {
+                    ctx.lineWidth = occupancyBarConfig.thickness.hourInterval;
                 }
+                ctx.font = occupancyBarConfig.font.hourLabel;
+
                 if (xPos > 0 && xPos < canvasWidth) {
                     if ((xPos - ctx.measureText(text).width / 2) < 0) {
                         ctx.textAlign = 'left';
@@ -305,10 +316,11 @@ class HomePage extends Component {
                 const sunSetTime = sunTimes.sunset;
 
                 if (hourInterval.valueOf() > sunRiseTime.valueOf() && hourInterval.valueOf() < sunSetTime.valueOf()) {
-                    ctx.strokeStyle = occupancyStatusBarColours.daylines;
+                    ctx.strokeStyle = occupancyBarConfig.colours.daylines;
                 } else {
-                    ctx.strokeStyle = occupancyStatusBarColours.nightlines;
+                    ctx.strokeStyle = occupancyBarConfig.colours.nightlines;
                 }
+
                 ctx.beginPath();
                 ctx.moveTo(xPos, 0);
                 ctx.lineTo(xPos, 20);
@@ -320,12 +332,12 @@ class HomePage extends Component {
 
         // draw date
         for (let i = 0; i < 3; i++) {
-
             const drawDate = new Date(startTime - (1000 * 60 * 60 * 24 * i));
             drawDate.setHours(12, 0, 0);
             const drawPos = canvasWidth - (((startTime - drawDate) / (1000 * 60 * 60 * 24)) * canvasWidth);
 
-            ctx.fillStyle = occupancyStatusBarColours.text;
+            ctx.fillStyle = occupancyBarConfig.colours.text;
+            ctx.font = occupancyBarConfig.font.dayLabel;
             ctx.textAlign = 'center';
             ctx.fillText(drawDate.toDateString(), drawPos, 50);
         }
