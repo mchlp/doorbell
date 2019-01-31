@@ -178,7 +178,8 @@ class HomePage extends Component {
     }
 
     updateOccupancyBar = () => {
-        const canvasDimensions = this.canvas.getBoundingClientRect();
+
+        const canvasDimensions = this.canvasContainer.getBoundingClientRect();
         const canvasWidth = canvasDimensions.width;
         const canvasHeight = canvasDimensions.height;
 
@@ -334,12 +335,27 @@ class HomePage extends Component {
         for (let i = 0; i < 3; i++) {
             const drawDate = new Date(startTime - (1000 * 60 * 60 * 24 * i));
             drawDate.setHours(12, 0, 0);
-            const drawPos = canvasWidth - (((startTime - drawDate) / (1000 * 60 * 60 * 24)) * canvasWidth);
+            let drawPos = canvasWidth - (((startTime - drawDate) / (1000 * 60 * 60 * 24)) * canvasWidth);
 
             ctx.fillStyle = occupancyBarConfig.colours.text;
             ctx.font = occupancyBarConfig.font.dayLabel;
-            ctx.textAlign = 'center';
-            ctx.fillText(drawDate.toDateString(), drawPos, 50);
+
+            const drawText = drawDate.toDateString();
+            const leftDrawPos = drawPos - (ctx.measureText(drawText).width / 2);
+            const rightDrawPos = drawPos + (ctx.measureText(drawText).width / 2);
+
+            const textPadding = 2;
+
+            if (leftDrawPos < textPadding && rightDrawPos > textPadding) {
+                ctx.textAlign = 'left';
+                drawPos = textPadding;
+            } else if (rightDrawPos > (canvasWidth - textPadding) && leftDrawPos < canvasWidth - textPadding) {
+                ctx.textAlign = 'right';
+                drawPos = canvasWidth - textPadding;
+            } else {
+                ctx.textAlign = 'center';
+            }
+            ctx.fillText(drawText, drawPos, 50);
         }
 
     }
@@ -396,7 +412,9 @@ class HomePage extends Component {
 
             });
 
-            window.addEventListener('resize', this.updateOccupancyBar);
+            window.addEventListener('resize', () => {
+                this.forceUpdate();
+            });
         }
     }
 
@@ -503,7 +521,9 @@ class HomePage extends Component {
                                     Occupancy Log
                                 </h5>
                             </div>
-                            <canvas className='m-1 border' width="100%" height="60" ref={ref => this.canvas = ref}></canvas>
+                            <div className='m-1' style={{ 'height': '60px' }} ref={ref => this.canvasContainer = ref}>
+                                <canvas className='border' ref={ref => this.canvas = ref}></canvas>
+                            </div>
                             <div className="card-body">
                                 {
                                     this.state.occupancyLog.length ?
