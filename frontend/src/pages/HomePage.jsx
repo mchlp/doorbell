@@ -321,9 +321,17 @@ class HomePage extends Component {
         }
 
         // draw date
-        ctx.fillStyle = occupancyStatusBarColours.text;
-        ctx.textAlign = 'center';
-        ctx.fillText(new Date(startTime).toDateString(), canvasWidth / 2, 50);
+        for (let i = 0; i < 3; i++) {
+
+            const drawDate = new Date(startTime - (1000 * 60 * 60 * 24 * i));
+            drawDate.setHours(12, 0, 0);
+            const drawPos = canvasWidth - (((startTime - drawDate) / (1000 * 60 * 60 * 24)) * canvasWidth);
+
+            ctx.fillStyle = occupancyStatusBarColours.text;
+            ctx.textAlign = 'center';
+            ctx.fillText(drawDate.toDateString(), drawPos, 50);
+        }
+
     }
 
     componentDidUpdate() {
