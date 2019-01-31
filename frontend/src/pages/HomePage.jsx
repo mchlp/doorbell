@@ -245,21 +245,21 @@ class HomePage extends Component {
         // drawing occupancy fill
         for (let i = 0; i < this.state.occupancyLog.length; i++) {
             const curLog = this.state.occupancyLog[i];
-            const barStartPosition = canvasWidth - (((startTime - curLog.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
-            let barEndPosition;
+            if (curLog.status) {
+                const barStartPosition = canvasWidth - (((startTime - curLog.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
+                let barEndPosition;
 
-            if (i < this.state.occupancyLog.length - 1) {
-                const nextLog = this.state.occupancyLog[i + 1];
-                barEndPosition = canvasWidth - (((startTime - nextLog.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
-            } else {
                 barEndPosition = canvasWidth;
-                console.log('end');
+                for (let j = i + 1; j < this.state.occupancyLog.length - 1; j++) {
+                    const nextLog = this.state.occupancyLog[j];
+                    barEndPosition = canvasWidth - (((startTime - nextLog.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
+                }
+
+                const width = barEndPosition - barStartPosition;
+
+                ctx.fillStyle = occupancyStatusBarColours.occupied;
+                ctx.fillRect(barStartPosition, 0, width, 20);
             }
-
-            const width = barEndPosition - barStartPosition;
-
-            ctx.fillStyle = occupancyStatusBarColours.occupied;
-            ctx.fillRect(barStartPosition, 0, width, 20);
         }
 
         // draw hour interval lines
@@ -376,6 +376,8 @@ class HomePage extends Component {
                 window.addEventListener('mouseleave', canvasMouseLeaveListener, true);
 
             });
+
+            window.addEventListener('resize', this.updateOccupancyBar);
         }
     }
 
@@ -482,7 +484,7 @@ class HomePage extends Component {
                                     Occupancy Log
                                 </h5>
                             </div>
-                            <canvas className='m-1 border' width="100%" height="60" ref={ref => this.canvas = ref} onResize={this.updateOccupancyBar}></canvas>
+                            <canvas className='m-1 border' width="100%" height="60" ref={ref => this.canvas = ref}></canvas>
                             <div className="card-body">
                                 {
                                     this.state.occupancyLog.length ?
