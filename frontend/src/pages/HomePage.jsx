@@ -507,7 +507,7 @@ class HomePage extends Component {
                             <div className="card-body">
                                 {
                                     this.state.occupancyLog.length ?
-                                        this.state.occupancyLog.reverse().map((log) => {
+                                        this.state.occupancyLog.slice(0).reverse().map((log) => {
                                             return (
                                                 log.time !== 0 ?
                                                     <p key={log.time} className="card-text">
