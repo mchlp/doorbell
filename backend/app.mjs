@@ -18,6 +18,7 @@ if (config.db.username && config.db.password) {
         user: config.db.username,
         password: config.db.password
     };
+    mongooseOptions.authSource = config.db.authSource;
 }
 mongooseOptions.useNewUrlParser = true;
 

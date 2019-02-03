@@ -14,6 +14,7 @@
         "host": "localhost",
         "database": "doorbell",
         "username": "user",
-        "password": "password"
+        "password": "password",
+        "auth-db": "admin"
     }
 }
