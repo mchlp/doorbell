@@ -253,12 +253,12 @@ class HomePage extends Component {
         // drawing occupancy fill
         for (let i = 0; i < this.state.occupancyLog.length; i++) {
             const curLog = this.state.occupancyLog[i];
-            if (curLog.status) {
+            if (curLog.occupied) {
                 const barStartPosition = canvasWidth - (((startTime - curLog.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
                 let barEndPosition = canvasWidth;
                 for (let j = i + 1; j < this.state.occupancyLog.length; j++) {
                     const nextLog = this.state.occupancyLog[j];
-                    if (!nextLog.status) {
+                    if (!nextLog.occupied) {
                         barEndPosition = canvasWidth - (((startTime - nextLog.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
                         i = j;
                         break;
@@ -527,14 +527,15 @@ class HomePage extends Component {
                             <div className="card-body">
                                 {
                                     this.state.occupancyLog.length ?
-                                        this.state.occupancyLog.slice(0).reverse().map((log) => {
+                                        this.state.occupancyLog.slice(0).map((log) => {
+                                            console.log(log);
                                             return (
                                                 log.time !== 0 ?
                                                     <p key={log.time} className="card-text">
                                                         <b>{
                                                             (new Date(log.time)).toLocaleString('en-US') + ' - '}
                                                         </b>
-                                                        {(log.status ? 'Occupied' : 'Unoccupied')}
+                                                        {(log.occupied ? 'Occupied' : 'Unoccupied')}
                                                     </p>
                                                     :
                                                     null

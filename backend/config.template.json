@@ -1,0 +1,19 @@
+{
+    "password": "password",
+    "token-expiry-sec": 2592000,
+    "motion-delay-sec": 60,
+    "log-length-days": 730,
+    "api": {
+        "port": 3001
+    },
+    "socket": {
+        "port": 3002
+    },
+    "occupancy-status-stream": "/dev/stdin",
+    "db": {
+        "host": "localhost",
+        "database": "doorbell",
+        "username": "user",
+        "password": "password"
+    }
+}
