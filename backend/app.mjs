@@ -14,10 +14,8 @@ const exec = util.promisify(childProcess.exec);
 
 const mongooseOptions = {};
 if (config.db.username && config.db.password) {
-    mongooseOptions.auth = {
-        user: config.db.username,
-        password: config.db.password
-    };
+    mongooseOptions.user = config.db.username;
+    mongooseOptions.password = config.db.password;
     mongooseOptions.authSource = config.db.authSource;
 }
 mongooseOptions.useNewUrlParser = true;
