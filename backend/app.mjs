@@ -12,6 +12,8 @@ import * as schema from './schema/index.mjs';
 
 const exec = util.promisify(childProcess.exec);
 
+Error.stackTraceLimit = Infinity;
+
 const mongooseOptions = {};
 if (config.db.username && config.db.password) {
     mongooseOptions.auth = {};
@@ -39,12 +41,14 @@ async function start() {
     state.occupied = beforeStartOccupied ? beforeStartOccupied.occupied : false;
 
     // set up motion sensor serial steram
-    const motionSerial = fs.createReadStream(config['occupancy-status-stream']);
-    motionSerial.on('data', function (chunk) {
-        if (chunk.toString().includes('1')) {
-            state.lastMotion = Date.now();
-        }
-    });
+    if (config['occupancy-status-stream']) {
+        const motionSerial = fs.createReadStream(config['occupancy-status-stream']);
+        motionSerial.on('data', function (chunk) {
+            if (chunk.toString().includes('1')) {
+                state.lastMotion = Date.now();
+            }
+        });
+    }
 
     // set interval to update occupancy status
     setInterval(() => {
@@ -200,32 +204,26 @@ async function start() {
             if (authenticate(data.token)) {
 
                 socket.on('doorbell', async () => {
-                    const result = await startSoundAction(async () => {
+                    await startSoundAction(async () => {
                         await exec('./actions/ring.sh');
                         await talk('Someone is at the door.');
                     }, 'doorbell', null, socket);
-                    await schema.ActionLogEntry.create({
-                        timestamp: Date.now(),
-                        type: 'doorbell',
-                        result
-                    });
-                    io.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: 1 }).exec());
                 });
 
                 socket.on('broadcast', async (data) => {
-                    const result = await startSoundAction(async () => {
+                    await startSoundAction(async () => {
                         await talk(data.message);
                     }, 'broadcast', data.message, socket);
                 });
 
                 socket.on('alarm', async () => {
-                    const result = await startSoundAction(async () => {
+                    await startSoundAction(async () => {
                         await exec('./actions/alarm.sh');
                     }, 'alarm', null, socket);
                 });
 
                 socket.on('knock', async () => {
-                    const result = await startSoundAction(async () => {
+                    await startSoundAction(async () => {
                         await exec('./actions/notify.sh');
                         await talk('If you hear this, please pace the room.');
                     }, 'knock', null, socket);

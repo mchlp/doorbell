@@ -510,6 +510,8 @@ class HomePage extends Component {
 
         if (this.state.actionLog.length) {
 
+            const messageMaxLen = 97;
+
             let actionLog = this.state.actionLog;
             let actionLogRows = [];
             let actionsLogRowsDates = [];
@@ -521,7 +523,7 @@ class HomePage extends Component {
                     <tr key={log.unixtime}>
                         <td>{moment(log.unixtime).format(timeFormat)}</td>
                         <td>{log.type}</td>
-                        <td>{log.message}</td>
+                        <td>{log.message && log.message.length > messageMaxLen ? log.message.slice(0, messageMaxLen) + '...' : log.message}</td>
                     </tr>
                 );
                 actionsLogRowsDates.push(moment(log.unixtime).format(dateFormat));
