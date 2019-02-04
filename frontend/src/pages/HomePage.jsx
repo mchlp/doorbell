@@ -521,7 +521,7 @@ class HomePage extends Component {
 
         if (this.state.actionLog.length) {
 
-            const messageMaxLen = 97;
+            const messageMaxLen = 60;
 
             let actionLog = this.state.actionLog;
             let actionLogRows = [];
