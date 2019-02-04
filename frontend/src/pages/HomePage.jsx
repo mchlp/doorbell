@@ -471,6 +471,17 @@ class HomePage extends Component {
                 }
             }
 
+            if (lastOccupied) {
+                occupancyLogRows.push(
+                    <tr key={lastOccupied.unixtime}>
+                        <td>{moment(lastOccupied.unixtime).format(timeFormat)}</td>
+                        <td>Now</td>
+                        <td>{moment.duration(Date.now() - lastOccupied.unixtime).humanize()}</td>
+                    </tr>
+                );
+                occupancyLogRowsDates.push(moment(lastOccupied.unixtime).format(dateFormat));
+            }
+
             occupancyLogRows = occupancyLogRows.reverse();
             occupancyLogRowsDates = occupancyLogRowsDates.reverse();
 
@@ -491,7 +502,7 @@ class HomePage extends Component {
             }
 
             occupancyLogBody = (
-                <table className='table'>
+                <table className='table table-responsive'>
                     <thead>
                         <tr>
                             <th scope='col'>From</th>
@@ -523,7 +534,8 @@ class HomePage extends Component {
                     <tr key={log.unixtime}>
                         <td>{moment(log.unixtime).format(timeFormat)}</td>
                         <td>{log.type}</td>
-                        <td>{log.message && log.message.length > messageMaxLen ? log.message.slice(0, messageMaxLen) + '...' : log.message}</td>
+                        <td style={{ wordWrap: 'break-word' }}>{log.message && log.message.length > messageMaxLen ? log.message.slice(0, messageMaxLen) + '...' : log.message}</td>
+                        <td>{log.result ? 'Completed' : 'Not Completed'}</td>
                     </tr>
                 );
                 actionsLogRowsDates.push(moment(log.unixtime).format(dateFormat));
@@ -539,8 +551,8 @@ class HomePage extends Component {
                 let rowDate = actionsLogRowsDates[i];
                 if (lastDate !== rowDate) {
                     actionLogTable.push(
-                        <tr key={'date-' + rowDate} colSpan="3">
-                            <th colSpan="3">{rowDate}</th>
+                        <tr key={'date-' + rowDate} colSpan="4">
+                            <th colSpan="4">{rowDate}</th>
                         </tr>
                     );
                     lastDate = rowDate;
@@ -549,12 +561,13 @@ class HomePage extends Component {
             }
 
             actionLogBody = (
-                <table className='table'>
+                <table className='table table-responsive' style={{ tableLayout: 'fixed' }}>
                     <thead>
                         <tr>
                             <th scope='col'>Time</th>
                             <th scope='col'>Type</th>
                             <th scope='col'>Message</th>
+                            <th scope='col'>Result</th>
                         </tr>
                     </thead>
                     <tbody>
