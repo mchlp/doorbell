@@ -255,12 +255,12 @@ class HomePage extends Component {
         for (let i = 0; i < this.state.occupancyLog.length; i++) {
             const curLog = this.state.occupancyLog[i];
             if (curLog.occupied) {
-                const barStartPosition = canvasWidth - (((startTime - curLog.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
+                const barStartPosition = canvasWidth - (((startTime - curLog.unixtime) / (1000 * 60 * 60 * 24)) * canvasWidth);
                 let barEndPosition = canvasWidth;
                 for (let j = i + 1; j < this.state.occupancyLog.length; j++) {
                     const nextLog = this.state.occupancyLog[j];
                     if (!nextLog.occupied) {
-                        barEndPosition = canvasWidth - (((startTime - nextLog.time) / (1000 * 60 * 60 * 24)) * canvasWidth);
+                        barEndPosition = canvasWidth - (((startTime - nextLog.unixtime) / (1000 * 60 * 60 * 24)) * canvasWidth);
                         i = j;
                         break;
                     }
@@ -449,15 +449,15 @@ class HomePage extends Component {
                                 break;
                             }
                         }
-                        if (!next || next.time - log.time > 1000 * 60 * 5) {
+                        if (!next || next.unixtime - log.unixtime > 1000 * 60 * 5) {
                             occupancyLogRows.push(
-                                <tr key={log.time}>
-                                    <td>{moment(lastOccupied.time).format(timeFormat)}</td>
-                                    <td>{moment(log.time).format(timeFormat)}</td>
-                                    <td>{moment.duration(log.time - lastOccupied.time).humanize()}</td>
+                                <tr key={log.unixtime}>
+                                    <td>{moment(lastOccupied.unixtime).format(timeFormat)}</td>
+                                    <td>{moment(log.unixtime).format(timeFormat)}</td>
+                                    <td>{moment.duration(log.unixtime - lastOccupied.unixtime).humanize()}</td>
                                 </tr>
                             );
-                            occupancyLogRowsDates.push(moment(lastOccupied.time).format(dateFormat));
+                            occupancyLogRowsDates.push(moment(lastOccupied.unixtime).format(dateFormat));
                             lastOccupied = null;
                         }
                     }

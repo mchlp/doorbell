@@ -8,7 +8,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import socketIO from 'socket.io';
 import mongoose from 'mongoose';
-import * as schema from './schema';
+import * as schema from './schema/index.mjs';
 
 const exec = util.promisify(childProcess.exec);
 
@@ -119,11 +119,13 @@ async function start() {
             socket.emit(actionName + '-reply', {
                 'status': 'success'
             });
+            return true;
         } else {
             socket.emit(actionName + '-reply', {
                 'status': 'in-use'
             });
             logAction(actionName + ' failed, in use.', socket);
+            return false;
         }
     }
 
@@ -190,29 +192,50 @@ async function start() {
             if (authenticate(data.token)) {
 
                 socket.on('doorbell', async () => {
-                    await startSoundAction(async () => {
+                    const result = await startSoundAction(async () => {
                         await exec('./actions/ring.sh');
                         await talk('Someone is at the door.');
                     }, 'doorbell', socket);
+                    await schema.ActionLogEntry.create({
+                        timestamp: Date.now(),
+                        type: 'doorbell',
+                        result
+                    });
                 });
 
                 socket.on('broadcast', async (data) => {
-                    await startSoundAction(async () => {
+                    const result = await startSoundAction(async () => {
                         await talk(data.message);
                     }, 'broadcast', socket);
+                    await schema.ActionLogEntry.create({
+                        timestamp: Date.now(),
+                        type: 'broadcast',
+                        message: data.message,
+                        result
+                    });
                 });
 
                 socket.on('alarm', async () => {
-                    await startSoundAction(async () => {
+                    const result = await startSoundAction(async () => {
                         await exec('./actions/alarm.sh');
                     }, 'alarm', socket);
+                    await schema.ActionLogEntry.create({
+                        timestamp: Date.now(),
+                        type: 'alarm',
+                        result
+                    });
                 });
 
                 socket.on('knock', async () => {
-                    await startSoundAction(async () => {
+                    const result = await startSoundAction(async () => {
                         await exec('./actions/notify.sh');
                         await talk('If you hear this, please pace the room.');
                     }, 'knock', socket);
+                    await schema.ActionLogEntry.create({
+                        timestamp: Date.now(),
+                        type: 'knock',
+                        result
+                    });
                 });
 
                 socket.on('occupancy-log-get', async () => {
