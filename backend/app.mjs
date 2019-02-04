@@ -104,8 +104,9 @@ async function start() {
         return !!await schema.Token.deleteMany({ token }).exec();
     }
 
-    async function startSoundAction(actionFunc, actionName, socket) {
+    async function startSoundAction(actionFunc, actionName, message, socket) {
         logAction(actionName + ' attempted.', socket);
+        let result = false;
         if (!state.inUse) {
             state.inUse = actionName;
             try {
@@ -119,14 +120,21 @@ async function start() {
             socket.emit(actionName + '-reply', {
                 'status': 'success'
             });
-            return true;
+            result = true;
         } else {
             socket.emit(actionName + '-reply', {
                 'status': 'in-use'
             });
             logAction(actionName + ' failed, in use.', socket);
-            return false;
+            result = false;
         }
+        await schema.ActionLogEntry.create({
+            timestamp: Date.now(),
+            type: actionName,
+            result,
+            message
+        });
+        io.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: 1 }).exec());
     }
 
     async function talk(message) {
@@ -195,51 +203,40 @@ async function start() {
                     const result = await startSoundAction(async () => {
                         await exec('./actions/ring.sh');
                         await talk('Someone is at the door.');
-                    }, 'doorbell', socket);
+                    }, 'doorbell', null, socket);
                     await schema.ActionLogEntry.create({
                         timestamp: Date.now(),
                         type: 'doorbell',
                         result
                     });
+                    io.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: 1 }).exec());
                 });
 
                 socket.on('broadcast', async (data) => {
                     const result = await startSoundAction(async () => {
                         await talk(data.message);
-                    }, 'broadcast', socket);
-                    await schema.ActionLogEntry.create({
-                        timestamp: Date.now(),
-                        type: 'broadcast',
-                        message: data.message,
-                        result
-                    });
+                    }, 'broadcast', data.message, socket);
                 });
 
                 socket.on('alarm', async () => {
                     const result = await startSoundAction(async () => {
                         await exec('./actions/alarm.sh');
-                    }, 'alarm', socket);
-                    await schema.ActionLogEntry.create({
-                        timestamp: Date.now(),
-                        type: 'alarm',
-                        result
-                    });
+                    }, 'alarm', null, socket);
                 });
 
                 socket.on('knock', async () => {
                     const result = await startSoundAction(async () => {
                         await exec('./actions/notify.sh');
                         await talk('If you hear this, please pace the room.');
-                    }, 'knock', socket);
-                    await schema.ActionLogEntry.create({
-                        timestamp: Date.now(),
-                        type: 'knock',
-                        result
-                    });
+                    }, 'knock', null, socket);
                 });
 
                 socket.on('occupancy-log-get', async () => {
                     socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find().sort({ timestamp: 1 }).exec());
+                });
+
+                socket.on('action-log-get', async () => {
+                    socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: 1 }).exec());
                 });
 
                 socket.on('occupancy-check', async () => {
@@ -252,6 +249,7 @@ async function start() {
                     status: 'success'
                 });
                 socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find().sort({ timestamp: 1 }).exec());
+                socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: 1 }).exec());
                 logAction('Authentication succeeded.', socket);
             } else {
                 socket.emit('authenticate-reply', {

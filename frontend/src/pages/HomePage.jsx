@@ -51,6 +51,7 @@ class HomePage extends Component {
             broadcast: false,
             inuse: false,
             occupancyLog: [],
+            actionLog: [],
             occupancyBar: {
                 startAtNow: true,
                 startTime: null
@@ -105,6 +106,12 @@ class HomePage extends Component {
                     occupancyLog: data
                 });
             }
+        });
+
+        this.props.socket.on('action-log-reply', (data) => {
+            this.setState({
+                actionLog: data
+            });
         });
 
         setInterval(() => {
@@ -499,122 +506,191 @@ class HomePage extends Component {
             );
         }
 
+        let actionLogBody = <p>No logs found.</p>;
+
+        if (this.state.actionLog.length) {
+
+            let actionLog = this.state.actionLog;
+            let actionLogRows = [];
+            let actionsLogRowsDates = [];
+            for (let i = 0; i < actionLog.length; i++) {
+
+                let log = actionLog[i];
+
+                actionLogRows.push(
+                    <tr key={log.unixtime}>
+                        <td>{moment(log.unixtime).format(timeFormat)}</td>
+                        <td>{log.type}</td>
+                        <td>{log.message}</td>
+                    </tr>
+                );
+                actionsLogRowsDates.push(moment(log.unixtime).format(dateFormat));
+            }
+
+            actionLogRows = actionLogRows.reverse();
+            actionsLogRowsDates = actionsLogRowsDates.reverse();
+
+            const actionLogTable = [];
+            let lastDate = null;
+            for (let i = 0; i < actionLogRows.length; i++) {
+                let row = actionLogRows[i];
+                let rowDate = actionsLogRowsDates[i];
+                if (lastDate !== rowDate) {
+                    actionLogTable.push(
+                        <tr key={'date-' + rowDate} colSpan="3">
+                            <th colSpan="3">{rowDate}</th>
+                        </tr>
+                    );
+                    lastDate = rowDate;
+                }
+                actionLogTable.push(row);
+            }
+
+            actionLogBody = (
+                <table className='table'>
+                    <thead>
+                        <tr>
+                            <th scope='col'>Time</th>
+                            <th scope='col'>Type</th>
+                            <th scope='col'>Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {actionLogTable}
+                    </tbody>
+                </table>
+            );
+        }
+
         return (
-            <div className="container mt-3">
-                {localStorage.getItem('token') ?
-                    <div>
-                        {this.state.inuse ?
-                            <div className='alert alert-danger'>
-                                Currently in use. Please try again later.
-                            </div>
-                            :
-                            null
-                        }
-                        <div className={'card text-white bg-primary mb-2' + (this.state.connected ? ' bg-success' : ' bg-danger')}>
-                            <div className="card-body">
-                                <h5 className="card-text text-center">
-                                    {this.state.connected ?
-                                        <div>
-                                            <b>Status:</b> Connected
-                                        </div> :
-                                        <div>
-                                            <b>Status:</b> Not Connected
-                                        </div>
-                                    }
-                                </h5>
-                            </div>
-                        </div>
-                        <div className={'card bg-primary mb-2' + (!this.state.connected ? ' bg-danger text-white' : this.state.occupied ? ' bg-success text-white' : ' bg-warning text-black')}>
-                            <div className="card-body">
-                                <h5 className="card-text text-center">
-                                    {this.state.connected ?
-                                        this.state.occupied ?
-                                            <div>
-                                                <b>Occupancy:</b> Occupied
-                                            </div>
-                                            :
-                                            <div>
-                                                <b>Occupancy:</b> Unoccupied
-                                            </div>
-                                        :
-                                        <div>
-                                            <b>Occupancy:</b> Unknown
-                                        </div>
-                                    }
-                                </h5>
-                            </div>
-                        </div>
-                        <button className="btn btn-secondary btn-lg btn-block" type='doorbell' onClick={this.handleSoundAction} disabled={this.state.doorbell || !this.state.connected}>
-                            {this.state.doorbell ?
-                                <div>
-                                    <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
-                                    Doorbell
-                                </div> :
-                                <div>
-                                    Doorbell
+            <div className="container mt-3" >
+                {
+                    localStorage.getItem('token') ?
+                        <div>
+                            {this.state.inuse ?
+                                <div className='alert alert-danger'>
+                                    Currently in use. Please try again later.
                                 </div>
+                                :
+                                null
                             }
-                        </button>
-                        <button className="btn btn-secondary btn-lg btn-block" type='knock' onClick={this.handleSoundAction} disabled={this.state.knock || !this.state.connected}>
-                            {this.state.knock ?
-                                <div>
-                                    <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
-                                    Knock Knock
-                                </div> :
-                                <div>
-                                    Knock Knock
-                                </div>
-                            }
-                        </button>
-                        <form onSubmit={this.handleBroadcast}>
-                            <div className="input-group my-3">
-                                <input type="text" id="broadcast-message" className="form-control" placeholder="Enter message to broadcast" required disabled={!this.state.connected} />
-                                <div className="input-group-append">
-                                    <button className="btn btn-secondary" type="submit" disabled={this.state.broadcast || !this.state.connected}>
-                                        {this.state.broadcast ?
+                            <div className={'card text-white bg-primary mb-2' + (this.state.connected ? ' bg-success' : ' bg-danger')}>
+                                <div className="card-body">
+                                    <h5 className="card-text text-center">
+                                        {this.state.connected ?
                                             <div>
-                                                <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
-                                                Broadcast
+                                                <b>Status:</b> Connected
                                             </div> :
                                             <div>
-                                                Broadcast
+                                                <b>Status:</b> Not Connected
                                             </div>
                                         }
-                                    </button>
+                                    </h5>
                                 </div>
                             </div>
-                        </form>
-                        <button className="btn btn-danger btn-lg btn-block" type='alarm' onClick={this.handleSoundAction} disabled={this.state.alarm || !this.state.connected}>
-                            {this.state.alarm ?
-                                <div>
-                                    <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
-                                    Alarm
-                                </div> :
-                                <div>
-                                    Alarm
+                            <div className={'card bg-primary mb-2' + (!this.state.connected ? ' bg-danger text-white' : this.state.occupied ? ' bg-success text-white' : ' bg-warning text-black')}>
+                                <div className="card-body">
+                                    <h5 className="card-text text-center">
+                                        {this.state.connected ?
+                                            this.state.occupied ?
+                                                <div>
+                                                    <b>Occupancy:</b> Occupied
+                                                </div>
+                                                :
+                                                <div>
+                                                    <b>Occupancy:</b> Unoccupied
+                                                </div>
+                                            :
+                                            <div>
+                                                <b>Occupancy:</b> Unknown
+                                            </div>
+                                        }
+                                    </h5>
                                 </div>
-                            }
-                        </button>
-                        <div className="card text-black bg-light my-3">
-                            <div className="card-header">
-                                <h5 className='mb-0'>
-                                    Occupancy Log
-                                </h5>
                             </div>
-                            <div className='m-1' style={{ 'height': '60px' }} ref={ref => this.canvasContainer = ref}>
-                                <canvas className='border' ref={ref => this.canvas = ref}></canvas>
-                            </div>
-                            <div className="card-body">
-                                {
-                                    occupancyLogBody
+                            <button className="btn btn-secondary btn-lg btn-block" type='doorbell' onClick={this.handleSoundAction} disabled={this.state.doorbell || !this.state.connected}>
+                                {this.state.doorbell ?
+                                    <div>
+                                        <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
+                                        Doorbell
+                                    </div> :
+                                    <div>
+                                        Doorbell
+                                    </div>
                                 }
+                            </button>
+                            <button className="btn btn-secondary btn-lg btn-block" type='knock' onClick={this.handleSoundAction} disabled={this.state.knock || !this.state.connected}>
+                                {this.state.knock ?
+                                    <div>
+                                        <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
+                                        Knock Knock
+                                    </div> :
+                                    <div>
+                                        Knock Knock
+                                    </div>
+                                }
+                            </button>
+                            <form onSubmit={this.handleBroadcast}>
+                                <div className="input-group my-3">
+                                    <input type="text" id="broadcast-message" className="form-control" placeholder="Enter message to broadcast" required disabled={!this.state.connected} />
+                                    <div className="input-group-append">
+                                        <button className="btn btn-secondary" type="submit" disabled={this.state.broadcast || !this.state.connected}>
+                                            {this.state.broadcast ?
+                                                <div>
+                                                    <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
+                                                    Broadcast
+                                                </div> :
+                                                <div>
+                                                    Broadcast
+                                                </div>
+                                            }
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                            <button className="btn btn-danger btn-lg btn-block" type='alarm' onClick={this.handleSoundAction} disabled={this.state.alarm || !this.state.connected}>
+                                {this.state.alarm ?
+                                    <div>
+                                        <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
+                                        Alarm
+                                    </div> :
+                                    <div>
+                                        Alarm
+                                    </div>
+                                }
+                            </button>
+                            <div className="card text-black bg-light my-3">
+                                <div className="card-header">
+                                    <h5 className='mb-0'>
+                                        Action Log
+                                    </h5>
+                                </div>
+                                <div className="card-body">
+                                    {
+                                        actionLogBody
+                                    }
+                                </div>
                             </div>
-                        </div>
-                        <button className="btn btn-secondary btn-lg btn-block mb-3" onClick={this.logout}>
-                            Logout
-                        </button>
-                    </div> :
-                    <LoginPage />
+                            <div className="card text-black bg-light my-3">
+                                <div className="card-header">
+                                    <h5 className='mb-0'>
+                                        Occupancy Log
+                                    </h5>
+                                </div>
+                                <div className='m-1' style={{ 'height': '60px' }} ref={ref => this.canvasContainer = ref}>
+                                    <canvas className='border' ref={ref => this.canvas = ref}></canvas>
+                                </div>
+                                <div className="card-body">
+                                    {
+                                        occupancyLogBody
+                                    }
+                                </div>
+                            </div>
+                            <button className="btn btn-secondary btn-lg btn-block mb-3" onClick={this.logout}>
+                                Logout
+                            </button>
+                        </div> :
+                        <LoginPage />
                 }
             </div>
         );
