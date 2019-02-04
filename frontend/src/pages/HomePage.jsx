@@ -3,6 +3,7 @@ import LoginPage from './LoginPage';
 import SocketContext from '../socket';
 import axios from 'axios';
 import SunCalc from 'suncalc';
+import moment from 'moment';
 
 const occupancyBarConfig = {
     colours: {
@@ -419,6 +420,85 @@ class HomePage extends Component {
     }
 
     render() {
+
+        let occupancyLogBody = <p>No logs found.</p>;
+
+        const dateFormat = 'dddd, MMMM Do, YYYY';
+        const timeFormat = 'h:mm:ss A';
+
+        if (this.state.occupancyLog.length) {
+            const occupancyLog = this.state.occupancyLog;
+            let occupancyLogRows = [];
+            let occupancyLogRowsDates = [];
+            let lastOccupied = null;
+            for (let i = 0; i < occupancyLog.length; i++) {
+
+                let log = occupancyLog[i];
+
+                if (log.occupied) {
+                    if (lastOccupied === null) {
+                        lastOccupied = log;
+                    }
+                } else {
+                    if (lastOccupied) {
+                        let next = null;
+                        for (let j = i + 1; j < occupancyLog.length; j++) {
+                            let checkLog = occupancyLog[j];
+                            if (checkLog.occupied) {
+                                next = checkLog;
+                                break;
+                            }
+                        }
+                        if (!next || next.time - log.time > 1000 * 60 * 5) {
+                            occupancyLogRows.push(
+                                <tr key={log.time}>
+                                    <td>{moment(lastOccupied.time).format(timeFormat)}</td>
+                                    <td>{moment(log.time).format(timeFormat)}</td>
+                                    <td>{moment.duration(log.time - lastOccupied.time).humanize()}</td>
+                                </tr>
+                            );
+                            occupancyLogRowsDates.push(moment(lastOccupied.time).format(dateFormat));
+                            lastOccupied = null;
+                        }
+                    }
+                }
+            }
+
+            occupancyLogRows = occupancyLogRows.reverse();
+            occupancyLogRowsDates = occupancyLogRowsDates.reverse();
+
+            const occupancyLogTable = [];
+            let lastDate = null;
+            for (let i = 0; i < occupancyLogRows.length; i++) {
+                let row = occupancyLogRows[i];
+                let rowDate = occupancyLogRowsDates[i];
+                if (lastDate !== rowDate) {
+                    occupancyLogTable.push(
+                        <tr key={'date-' + rowDate} colSpan="3">
+                            <th colSpan="3">{rowDate}</th>
+                        </tr>
+                    );
+                    lastDate = rowDate;
+                }
+                occupancyLogTable.push(row);
+            }
+
+            occupancyLogBody = (
+                <table className='table'>
+                    <thead>
+                        <tr>
+                            <th scope='col'>From</th>
+                            <th scope='col'>To</th>
+                            <th scope='col'>Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {occupancyLogTable}
+                    </tbody>
+                </table>
+            );
+        }
+
         return (
             <div className="container mt-3">
                 {localStorage.getItem('token') ?
@@ -526,22 +606,7 @@ class HomePage extends Component {
                             </div>
                             <div className="card-body">
                                 {
-                                    this.state.occupancyLog.length ?
-                                        this.state.occupancyLog.slice(0).reverse().map((log) => {
-                                            return (
-                                                log.time !== 0 ?
-                                                    <p key={log.time} className="card-text">
-                                                        <b>{
-                                                            (new Date(log.time)).toLocaleString('en-US') + ' - '}
-                                                        </b>
-                                                        {(log.occupied ? 'Occupied' : 'Unoccupied')}
-                                                    </p>
-                                                    :
-                                                    null
-                                            );
-                                        })
-                                        :
-                                        <p>No logs found.</p>
+                                    occupancyLogBody
                                 }
                             </div>
                         </div>
