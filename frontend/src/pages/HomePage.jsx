@@ -502,7 +502,7 @@ class HomePage extends Component {
             }
 
             occupancyLogBody = (
-                <table className='table table-responsive'>
+                <table className='table'>
                     <thead>
                         <tr>
                             <th scope='col'>From</th>
@@ -561,7 +561,7 @@ class HomePage extends Component {
             }
 
             actionLogBody = (
-                <table className='table table-responsive' style={{ tableLayout: 'fixed' }}>
+                <table className='table' style={{ tableLayout: 'fixed' }}>
                     <thead>
                         <tr>
                             <th scope='col'>Time</th>
