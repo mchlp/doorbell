@@ -137,11 +137,11 @@ async function start() {
     app.post('/api/login', async (req, res, next) => {
         if (req.body.password === config.password) {
             const token = await genToken(16);
-            console.log(await schema.Token.create({
+            await schema.Token.create({
                 created: Date.now(),
                 expiry: Date.now() + (config['token-expiry-sec'] * 1000),
                 token
-            }));
+            });
             res.json({
                 'status': 'success',
                 token
