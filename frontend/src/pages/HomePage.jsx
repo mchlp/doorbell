@@ -677,18 +677,6 @@ class HomePage extends Component {
                             <div className="card text-black bg-light my-3">
                                 <div className="card-header">
                                     <h5 className='mb-0'>
-                                        Action Log
-                                    </h5>
-                                </div>
-                                <div className="card-body">
-                                    {
-                                        actionLogBody
-                                    }
-                                </div>
-                            </div>
-                            <div className="card text-black bg-light my-3">
-                                <div className="card-header">
-                                    <h5 className='mb-0'>
                                         Occupancy Log
                                     </h5>
                                 </div>
@@ -701,8 +689,20 @@ class HomePage extends Component {
                                     }
                                 </div>
                             </div>
+                            <div className="card text-black bg-light my-3">
+                                <div className="card-header">
+                                    <h5 className='mb-0'>
+                                        Action Log
+                                    </h5>
+                                </div>
+                                <div className="card-body">
+                                    {
+                                        actionLogBody
+                                    }
+                                </div>
+                            </div>
                             <button className="btn btn-secondary btn-lg btn-block mb-3" onClick={this.logout}>
-                                Logout
+                                Log Out
                             </button>
                         </div> :
                         <LoginPage />
