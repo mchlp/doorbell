@@ -14,13 +14,15 @@ const exec = util.promisify(childProcess.exec);
 
 const mongooseOptions = {};
 if (config.db.username && config.db.password) {
-    mongooseOptions.user = config.db.username;
-    mongooseOptions.password = config.db.password;
-    mongooseOptions.authSource = config.db.authSource;
+    mongooseOptions.auth = {};
+    mongooseOptions.auth.user = config.db.username;
+    mongooseOptions.auth.password = config.db.password;
+    mongooseOptions.auth.authdb = config.db.authSource;
 }
 mongooseOptions.useNewUrlParser = true;
+mongooseOptions.dbName = config.db.database;
 
-mongoose.connect('mongodb://' + config.db.host + ':' + (config.db.port ? config.db.port : 27017) + '/' + config.db.database, mongooseOptions);
+mongoose.connect('mongodb://' + config.db.host + ':' + (config.db.port ? config.db.port : 27017) + '/', mongooseOptions);
 
 const app = express();
 const server = http.createServer(app);
@@ -28,9 +30,13 @@ const io = socketIO(server);
 const state = {};
 
 async function start() {
+
+    const beforeStartLastMotion = await schema.MotionLogEntry.findOne({ occupied: true }).sort({ timestamp: -1 }).exec();
+    const beforeStartOccupied = await schema.MotionLogEntry.findOne().sort({ timestamp: -1 }).exec();
+
     state.inUse = false;
-    state.lastMotion = (await schema.MotionLogEntry.findOne({ occupied: true }).sort({ timestamp: -1 }).exec()).time;
-    state.occupied = (await schema.MotionLogEntry.findOne().sort({ timestamp: -1 }).exec()).occupied;
+    state.lastMotion = beforeStartLastMotion ? beforeStartLastMotion.time : 0;
+    state.occupied = beforeStartOccupied ? beforeStartOccupied.occupied : false;
 
     // set up motion sensor serial steram
     const motionSerial = fs.createReadStream(config['occupancy-status-stream']);
@@ -210,7 +216,7 @@ async function start() {
                 });
 
                 socket.on('occupancy-log-get', async () => {
-                    socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find().sort({ timestamp: -1 }).exec());
+                    socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find().sort({ timestamp: 1 }).exec());
                 });
 
                 socket.on('occupancy-check', async () => {
@@ -222,7 +228,7 @@ async function start() {
                 socket.emit('authenticate-reply', {
                     status: 'success'
                 });
-                socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find().exec());
+                socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find().sort({ timestamp: 1 }).exec());
                 logAction('Authentication succeeded.', socket);
             } else {
                 socket.emit('authenticate-reply', {

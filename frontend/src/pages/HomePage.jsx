@@ -527,7 +527,7 @@ class HomePage extends Component {
                             <div className="card-body">
                                 {
                                     this.state.occupancyLog.length ?
-                                        this.state.occupancyLog.slice(0).map((log) => {
+                                        this.state.occupancyLog.slice(0).reverse().map((log) => {
                                             console.log(log);
                                             return (
                                                 log.time !== 0 ?
