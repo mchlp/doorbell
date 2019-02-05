@@ -95,6 +95,7 @@ async function start() {
             return false;
         }
         const foundToken = await schema.Token.findOne({ token }).exec();
+        console.log('TOKEN ' + foundToken);
         if (foundToken) {
             if (Date.now() <= new Date(foundToken.expiry).valueOf()) {
                 return true;
@@ -226,7 +227,7 @@ async function start() {
     io.on('connection', (socket) => {
         logAction('New client connected.', socket);
         socket.on('authenticate', async (data) => {
-            if (authenticate(data.token)) {
+            if (await authenticate(data.token)) {
 
                 socket.on('doorbell', async () => {
                     await startSoundAction(async () => {
