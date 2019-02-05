@@ -551,9 +551,6 @@ class HomePage extends Component {
                 actionsLogRowsDates.push(moment(log.unixtime).format(dateFormat));
             }
 
-            actionLogRows = actionLogRows.reverse();
-            actionsLogRowsDates = actionsLogRowsDates.reverse();
-
             const actionLogTable = [];
             let lastDate = null;
             for (let i = 0; i < actionLogRows.length; i++) {
