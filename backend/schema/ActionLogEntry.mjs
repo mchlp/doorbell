@@ -15,9 +15,9 @@ const ActionLogEntry = new Schema({
             return this.type === 'broadcast';
         },
     },
-    result: {
-        type: Boolean,
-        required: true
+    status: {
+        type: String,
+        required: true,
     }
 }, {
     toObject: { virtuals: true },
