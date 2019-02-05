@@ -95,7 +95,6 @@ async function start() {
             return false;
         }
         const foundToken = await schema.Token.findOne({ token }).exec();
-        console.log('TOKEN ' + foundToken);
         if (foundToken) {
             if (Date.now() <= new Date(foundToken.expiry).valueOf()) {
                 return true;
@@ -142,7 +141,7 @@ async function start() {
             status: result ? 'Completed' : 'Failed',
             message
         });
-        io.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: 1 }).limit(10).exec());
+        io.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
     }
 
     async function talk(message) {
@@ -256,11 +255,11 @@ async function start() {
                 });
 
                 socket.on('occupancy-log-get', async () => {
-                    socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({ timestamp: { $gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF } }).sort({ timestamp: 1 }).exec());
+                    socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({ timestamp: { $gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF } }).sort({ timestamp: -1 }).exec());
                 });
 
                 socket.on('action-log-get', async () => {
-                    socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: 1 }).limit(10).exec());
+                    socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
                 });
 
                 socket.on('occupancy-check', async () => {
@@ -272,8 +271,8 @@ async function start() {
                 socket.emit('authenticate-reply', {
                     status: 'success'
                 });
-                socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({ timestamp: { $gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF } }).sort({ timestamp: 1 }).exec());
-                socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: 1 }).limit(10).exec());
+                socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({ timestamp: { $gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF } }).sort({ timestamp: -1 }).exec());
+                socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
                 logAction('Authentication succeeded.', socket);
             } else {
                 socket.emit('authenticate-reply', {
