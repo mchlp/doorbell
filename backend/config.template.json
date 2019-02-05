@@ -16,5 +16,6 @@
         "username": "user",
         "password": "password",
         "auth-db": "admin"
-    }
+    },
+    "password-salt-rounds": 12
 }

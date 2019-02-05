@@ -12,7 +12,7 @@ class App extends Component {
 
     constructor(props) {
         super(props);
-        this.socket = io('');
+        this.socket = io('/client');
     }
 
     render() {

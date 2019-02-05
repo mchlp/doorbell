@@ -43,11 +43,6 @@ class HomePage extends Component {
             connected: false,
             loggedin: false,
             occupied: false,
-            doorbell: false,
-            check: false,
-            alarm: false,
-            knock: false,
-            broadcast: false,
             inuse: false,
             occupancyLog: [],
             actionLog: [],
@@ -135,45 +130,6 @@ class HomePage extends Component {
         });
         localStorage.removeItem('token');
         window.location.reload();
-    }
-
-    handleSoundAction = async (e) => {
-        const type = e.currentTarget.getAttribute('type');
-        this.setState({
-            [type]: true,
-            inuse: false
-        }, async () => {
-            this.props.socket.emit(type);
-            this.props.socket.on(type + '-reply', (data) => {
-                this.setState({
-                    [type]: false,
-                    inuse: data.status === 'in-use'
-                });
-                this.props.socket.off(type + '-reply');
-            });
-        });
-    }
-
-    handleBroadcast = async (e) => {
-        e.preventDefault();
-        this.setState({
-            broadcast: true,
-            inuse: false
-        }, async () => {
-            this.props.socket.emit('broadcast', {
-                message: document.getElementById('broadcast-message').value
-            });
-            this.props.socket.on('broadcast-reply', (data) => {
-                this.setState({
-                    broadcast: false,
-                    inuse: data.status === 'in-use'
-                });
-                if (data.status === 'success') {
-                    document.getElementById('broadcast-message').value = '';
-                }
-                this.props.socket.off('broadcast-reply');
-            });
-        });
     }
 
     scrollOccupancyBar = (move) => {
@@ -597,7 +553,7 @@ class HomePage extends Component {
                     <div className={'card text-white bg-dark mb-2'}>
                         <div className="card-body">
                             <h5 className="card-text text-center">
-                                Hello, you are logged in as <b>{localStorage.getItem('username')}</b>.
+                                <b>Admin Control Panel</b>
                             </h5>
                         </div>
                     </div>
@@ -635,57 +591,6 @@ class HomePage extends Component {
                             </h5>
                         </div>
                     </div>
-                    <button className="btn btn-secondary btn-lg btn-block" type='doorbell' onClick={this.handleSoundAction} disabled={this.state.doorbell || !this.state.connected}>
-                        {this.state.doorbell ?
-                            <div>
-                                <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
-                                Doorbell
-                            </div> :
-                            <div>
-                                Doorbell
-                            </div>
-                        }
-                    </button>
-                    <button className="btn btn-secondary btn-lg btn-block" type='knock' onClick={this.handleSoundAction} disabled={this.state.knock || !this.state.connected}>
-                        {this.state.knock ?
-                            <div>
-                                <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
-                                Knock Knock
-                            </div> :
-                            <div>
-                                Knock Knock
-                            </div>
-                        }
-                    </button>
-                    <form onSubmit={this.handleBroadcast}>
-                        <div className="input-group my-3">
-                            <input type="text" id="broadcast-message" className="form-control" placeholder="Enter message to broadcast" required disabled={!this.state.connected} />
-                            <div className="input-group-append">
-                                <button className="btn btn-secondary" type="submit" disabled={this.state.broadcast || !this.state.connected}>
-                                    {this.state.broadcast ?
-                                        <div>
-                                            <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
-                                            Broadcast
-                                        </div> :
-                                        <div>
-                                            Broadcast
-                                        </div>
-                                    }
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                    <button className="btn btn-danger btn-lg btn-block" type='alarm' onClick={this.handleSoundAction} disabled={this.state.alarm || !this.state.connected}>
-                        {this.state.alarm ?
-                            <div>
-                                <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
-                                Alarm
-                            </div> :
-                            <div>
-                                Alarm
-                            </div>
-                        }
-                    </button>
                     <div className="card text-black bg-light my-3">
                         <div className="card-header">
                             <h5 className='mb-0'>

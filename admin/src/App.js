@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
-import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
+import AdminPage from './pages/AdminPage';
 import Page404 from './pages/Page404';
 import SocketContext from './socket';
 import * as io from 'socket.io-client';
@@ -12,7 +11,7 @@ class App extends Component {
 
     constructor(props) {
         super(props);
-        this.socket = io('');
+        this.socket = io('/admin');
     }
 
     render() {
@@ -21,8 +20,7 @@ class App extends Component {
                 <BrowserRouter>
                     <div className="App">
                         <Switch>
-                            <PrivateRoute exact path='/' component={HomePage} />
-                            <Route exact path="/login" component={LoginPage} />
+                            <PrivateRoute exact path='/' component={AdminPage} />
                             <Route component={Page404} />
                         </Switch>
                     </div>

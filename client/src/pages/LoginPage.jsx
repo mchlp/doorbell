@@ -22,7 +22,11 @@ class LoginPage extends Component {
                 token: res.data.token
             });
             this.props.socket.on('authenticate-reply', () => {
-                this.props.history.push('/');
+                if (res.data.username === 'admin') {
+                    this.props.history.push('/admin');
+                } else {
+                    this.props.history.push('/');
+                }
             });
         } else {
             alert('Incorrect password entered.');
