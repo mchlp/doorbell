@@ -9,6 +9,7 @@ import fs from 'fs';
 import socketIO from 'socket.io';
 import mongoose from 'mongoose';
 import * as schema from './schema/index.mjs';
+import bcrypt from 'bcrypt';
 
 const exec = util.promisify(childProcess.exec);
 
@@ -137,7 +138,7 @@ async function start() {
         await schema.ActionLogEntry.create({
             timestamp: Date.now(),
             type: actionName,
-            result,
+            status: result ? 'Completed' : 'Failed',
             message
         });
         io.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: 1 }).limit(10).exec());
@@ -147,21 +148,43 @@ async function start() {
         await exec('espeak "' + message + '" -s 150');
     }
 
+    function bcryptCompareWrapper(enteredPassword, checkPassword) {
+        return new Promise((resolve, reject) => {
+            bcrypt.compare(enteredPassword, checkPassword, (err, isMatch) => {
+                if (err) {
+                    reject(err);
+                }
+                resolve(isMatch);
+            });
+        });
+    }
+
     app.use(bodyParser.urlencoded({ extended: false }));
     app.use(bodyParser.json());
 
     app.post('/api/login', async (req, res, next) => {
-        if (req.body.password === config.password) {
-            const token = await genToken(16);
-            await schema.Token.create({
-                created: Date.now(),
-                expiry: Date.now() + (config['token-expiry-sec'] * 1000),
-                token
-            });
-            res.json({
-                'status': 'success',
-                token
-            });
+        const user = await schema.User.findOne({ username: req.body.username }).exec();
+        const username = user.username;
+        const checkPassword = user.password;
+        if (user) {
+            if (await (bcryptCompareWrapper(req.body.password, checkPassword))) {
+                const token = await genToken(16);
+                await schema.Token.create({
+                    created: Date.now(),
+                    expiry: Date.now() + (config['token-expiry-sec'] * 1000),
+                    token,
+                    user: user._id
+                });
+                res.json({
+                    'status': 'success',
+                    token,
+                    username
+                });
+            } else {
+                res.json({
+                    'status': 'failed'
+                });
+            }
         } else {
             res.json({
                 'status': 'failed'
@@ -232,7 +255,7 @@ async function start() {
                 });
 
                 socket.on('occupancy-log-get', async () => {
-                    socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({timestamp: {$gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF}}).sort({ timestamp: 1 }).exec());
+                    socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({ timestamp: { $gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF } }).sort({ timestamp: 1 }).exec());
                 });
 
                 socket.on('action-log-get', async () => {
@@ -248,7 +271,7 @@ async function start() {
                 socket.emit('authenticate-reply', {
                     status: 'success'
                 });
-                socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({timestamp: {$gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF}}).sort({ timestamp: 1 }).exec());
+                socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({ timestamp: { $gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF } }).sort({ timestamp: 1 }).exec());
                 socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: 1 }).limit(10).exec());
                 logAction('Authentication succeeded.', socket);
             } else {
