@@ -40,6 +40,7 @@ class AdminPage extends Component {
     constructor(props) {
         super(props);
         this.state = {
+            muteEnd: null,
             user: localStorage.getItem('user'),
             perms: localStorage.getItem('perms'),
             connected: false,
@@ -51,7 +52,7 @@ class AdminPage extends Component {
             occupancyBar: {
                 startAtNow: true,
                 startTime: null
-            }
+            },
         };
 
         if (this.props.socket.connected) {
@@ -74,6 +75,12 @@ class AdminPage extends Component {
                 occupied: !!data.occupied
             });
             this.props.socket.emit('occupancy-log-get');
+        });
+
+        this.props.socket.on('mute-update', (data) => {
+            this.setState({
+                muteEnd: data.muteEnd
+            });
         });
 
         this.props.socket.on('occupancy-log-reply', (data) => {
@@ -131,6 +138,10 @@ class AdminPage extends Component {
             });
         }
         this.props.socket.emit('occupancy-check');
+    }
+
+    mute = async () => {
+        this.props.socket.emit('mute');
     }
 
     logout = async () => {
@@ -602,6 +613,9 @@ class AdminPage extends Component {
                             </h5>
                         </div>
                     </div>
+                    <button className="btn btn-danger btn-lg btn-block" type='doorbell' onClick={this.mute}>
+                        Mute {this.state.muteEnd}
+                    </button>
                     <div className="card text-black bg-light my-3">
                         <div className="card-header">
                             <h5 className='mb-0'>

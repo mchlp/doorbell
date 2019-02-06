@@ -112,6 +112,10 @@ class HomePage extends Component {
         setInterval(() => {
             this.props.socket.emit('occupancy-log-get');
         }, 1000 * 60);
+
+        if (this.state.user === 'admin') {
+            this.props.history.push('/admin');
+        }
     }
 
     startConnection = (stateSet) => {

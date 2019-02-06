@@ -17,5 +17,6 @@
         "password": "password",
         "auth-db": "admin"
     },
-    "password-salt-rounds": 12
+    "password-salt-rounds": 12,
+    "mute-length-sec": 300
 }

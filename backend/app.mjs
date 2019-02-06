@@ -38,6 +38,7 @@ async function start() {
     const beforeStartOccupied = await schema.MotionLogEntry.findOne().sort({ timestamp: -1 }).exec();
 
     state.inUse = false;
+    state.muteEnd = null;
     state.lastMotion = beforeStartLastMotion ? beforeStartLastMotion.time : 0;
     state.occupied = beforeStartOccupied ? beforeStartOccupied.occupied : false;
 
@@ -60,6 +61,13 @@ async function start() {
                 occupied: state.occupied
             });
             updateMotionLog(curStatus);
+        }
+
+        if (state.muteEnd < Date.now()) {
+            state.muteEnd = null;
+            io.sockets.in('admin').emit('mute-update', {
+                muteEnd: state.muteEnd
+            });
         }
     }, 1000);
 
@@ -309,6 +317,13 @@ async function start() {
                     } else if (authStatus === 'admin') {
                         socket.join('admin');
                         logAction('Joined admin room.', socket);
+
+                        socket.on('mute', async () => {
+                            state.muteEnd = Date.now() + (config['mute-length-sec'] * 1000);
+                            io.sockets.in('admin').emit('mute-update', {
+                                muteEnd: state.muteEnd
+                            });
+                        });
                     }
 
                     socket.on('occupancy-log-get', async () => {
