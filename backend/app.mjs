@@ -178,7 +178,7 @@ async function start() {
             const username = user.username;
             const checkPassword = user.password;
             if (await (bcryptCompareWrapper(req.body.password, checkPassword))) {
-                const token = await genToken(16);
+                const token = await genToken(24);
                 await schema.Token.create({
                     created: Date.now(),
                     expiry: Date.now() + (config['token-expiry-sec'] * 1000),

@@ -18,15 +18,12 @@ class LoginPage extends Component {
         if (res.data.status === 'success') {
             localStorage.setItem('token', res.data.token);
             localStorage.setItem('username', res.data.username);
+            console.log(res.data.token);
             this.props.socket.emit('authenticate', {
                 token: res.data.token
             });
             this.props.socket.on('authenticate-reply', () => {
-                if (res.data.username === 'admin') {
-                    this.props.history.push('/admin');
-                } else {
-                    this.props.history.push('/');
-                }
+                this.props.history.push('/');
             });
         } else {
             alert('Incorrect password entered.');
