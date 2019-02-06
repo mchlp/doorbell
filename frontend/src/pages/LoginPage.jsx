@@ -17,14 +17,9 @@ class LoginPage extends Component {
         });
         if (res.data.status === 'success') {
             localStorage.setItem('token', res.data.token);
-            localStorage.setItem('username', res.data.username);
-            console.log(res.data.token);
-            this.props.socket.emit('authenticate', {
-                token: res.data.token
-            });
-            this.props.socket.on('authenticate-reply', () => {
-                this.props.history.push('/');
-            });
+            localStorage.setItem('user', res.data.username);
+            localStorage.setItem('perms', res.data.perms);
+            this.props.history.push('/');
         } else {
             alert('Incorrect password entered.');
             document.getElementById('password').value = '';

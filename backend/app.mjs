@@ -88,32 +88,43 @@ async function start() {
         return (await randomBytes(len)).toString('base64').substring(0, len);
     }
 
-    async function authenticate(token, admin) {
+    async function authenticate(token) {
         if (!token) {
             return false;
         }
-        const foundToken = await schema.Token.findOne({ token }).exec();
+        const foundToken = await schema.Token.findOne({ token }).populate('user').exec();
         if (foundToken) {
             if (Date.now() <= new Date(foundToken.expiry).valueOf()) {
-                const foundTokenUser = await schema.User.findOne({ _id: foundToken.user }).exec();
-                if (foundTokenUser) {
-                    if (admin) {
-                        if (foundTokenUser === 'admin') {
-                            return true;
-                        } else {
-                            return false;
-                        }
-                    } else {
-                        return true;
-                    }
+                if (foundToken.user) {
+                    return (foundToken.user.type);
                 } else {
-                    return false;
+                    return 'failed';
                 }
+            } else {
+                return 'failed';
             }
-
         } else {
             await schema.Token.deleteMany({ token }).exec();
-            return false;
+            return 'failed';
+        }
+    }
+
+    function isAuthenticated(req, res, next) {
+        const rawToken = req.get('Authorization');
+        if (!rawToken) {
+            res.status(401).end('Not authorized');
+            return;
+        } else {
+            authenticate(rawToken).then((result) => {
+                if (result !== 'failed') {
+                    return next();
+                } else {
+                    res.status(401).end('Not authorized');
+                    return;
+                }
+            }).catch((err) => {
+                next(err);
+            });
         }
     }
 
@@ -174,8 +185,9 @@ async function start() {
 
     app.post('/api/login', async (req, res, next) => {
         const user = await schema.User.findOne({ username: req.body.username }).exec();
-        if (user) {
+        if (user && user.type === 'user') {
             const username = user.username;
+            const perms = user.perms;
             const checkPassword = user.password;
             if (await (bcryptCompareWrapper(req.body.password, checkPassword))) {
                 const token = await genToken(24);
@@ -188,7 +200,8 @@ async function start() {
                 res.json({
                     'status': 'success',
                     token,
-                    username
+                    username,
+                    perms
                 });
             } else {
                 res.json({
@@ -199,6 +212,30 @@ async function start() {
             res.json({
                 'status': 'failed'
             });
+        }
+    });
+
+    app.post('/api/elevate', isAuthenticated, async (req, res, next) => {
+        const token = req.get('Authorization');
+        const foundUser = (await schema.Token.findOne({ token }).populate('user').exec()).user;
+        if (foundUser.perms.includes('admin')) {
+            const user = await schema.User.findOne({ username: 'admin' }).exec();
+            const username = user.username;
+            const token = await genToken(24);
+            await schema.Token.create({
+                created: Date.now(),
+                expiry: Date.now() + (config['token-expiry-sec'] * 1000),
+                token,
+                user: user._id
+            });
+            res.json({
+                'status': 'success',
+                token,
+                username,
+                perms: null
+            });
+        } else {
+            res.status(401).end('Not authorized');
         }
     });
 
@@ -233,119 +270,74 @@ async function start() {
 
     io.set('origins', '*:*');
 
-    const clientSock = io.of('/client');
-    const adminSock = io.of('/admin');
-
-    adminSock.on('connection', (socket) => {
-        logAction('New admin connected.', socket);
-        socket.on('authenticate', async (data) => {
-            if (await (authenticate(data.token, true))) {
-                socket.on('doorbell', async () => {
-                    await startSoundAction(async () => {
-                        await exec('./actions/ring.sh');
-                        await talk('Someone is at the door.');
-                    }, 'doorbell', null, socket);
-                });
-
-                socket.on('broadcast', async (data) => {
-                    await startSoundAction(async () => {
-                        await talk(data.message);
-                    }, 'broadcast', data.message, socket);
-                });
-
-                socket.on('alarm', async () => {
-                    await startSoundAction(async () => {
-                        await exec('./actions/alarm.sh');
-                    }, 'alarm', null, socket);
-                });
-
-                socket.on('knock', async () => {
-                    await startSoundAction(async () => {
-                        await exec('./actions/notify.sh');
-                        await talk('If you hear this, please pace the room.');
-                    }, 'knock', null, socket);
-                });
-
-                socket.on('occupancy-log-get', async () => {
-                    socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({ timestamp: { $gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF } }).sort({ timestamp: 1 }).exec());
-                });
-
-                socket.on('action-log-get', async () => {
-                    socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
-                });
-
-                socket.on('occupancy-check', async () => {
-                    socket.emit('occupancy-update', {
-                        occupied: state.occupied
-                    });
-                });
-
-                socket.emit('authenticate-reply', {
-                    status: 'success'
-                });
-                socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({ timestamp: { $gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF } }).sort({ timestamp: 1 }).exec());
-                socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
-                logAction('Authentication succeeded.', socket);
-            } else {
-                socket.emit('authenticate-reply', {
-                    status: 'failed'
-                });
-                logAction('Authentication failed.', socket);
-            }
-        });
-    });
-
-    clientSock.on('connection', (socket) => {
+    io.on('connection', (socket) => {
         logAction('New client connected.', socket);
+
         socket.on('authenticate', async (data) => {
-            if (await authenticate(data.token, false)) {
+            if (data.token && data.type) {
+                const authStatus = await authenticate(data.token);
+                if (authStatus !== 'failed' && (data.type !== 'admin' || authStatus === 'admin')) {
+                    if (authStatus === 'user') {
+                        socket.join('user');
+                        logAction('Joined user room.', socket);
 
-                socket.on('doorbell', async () => {
-                    await startSoundAction(async () => {
-                        await exec('./actions/ring.sh');
-                        await talk('Someone is at the door.');
-                    }, 'doorbell', null, socket);
-                });
+                        socket.on('doorbell', async () => {
+                            await startSoundAction(async () => {
+                                await exec('./actions/ring.sh');
+                                await talk('Someone is at the door.');
+                            }, 'doorbell', null, socket);
+                        });
 
-                socket.on('broadcast', async (data) => {
-                    await startSoundAction(async () => {
-                        await talk(data.message);
-                    }, 'broadcast', data.message, socket);
-                });
+                        socket.on('broadcast', async (data) => {
+                            await startSoundAction(async () => {
+                                await talk(data.message);
+                            }, 'broadcast', data.message, socket);
+                        });
 
-                socket.on('alarm', async () => {
-                    await startSoundAction(async () => {
-                        await exec('./actions/alarm.sh');
-                    }, 'alarm', null, socket);
-                });
+                        socket.on('alarm', async () => {
+                            await startSoundAction(async () => {
+                                await exec('./actions/alarm.sh');
+                            }, 'alarm', null, socket);
+                        });
 
-                socket.on('knock', async () => {
-                    await startSoundAction(async () => {
-                        await exec('./actions/notify.sh');
-                        await talk('If you hear this, please pace the room.');
-                    }, 'knock', null, socket);
-                });
+                        socket.on('knock', async () => {
+                            await startSoundAction(async () => {
+                                await exec('./actions/notify.sh');
+                                await talk('If you hear this, please pace the room.');
+                            }, 'knock', null, socket);
+                        });
+                    } else if (authStatus === 'admin') {
+                        socket.join('admin');
+                        logAction('Joined admin room.', socket);
+                    }
 
-                socket.on('occupancy-log-get', async () => {
-                    socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({ timestamp: { $gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF } }).sort({ timestamp: 1 }).exec());
-                });
-
-                socket.on('action-log-get', async () => {
-                    socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
-                });
-
-                socket.on('occupancy-check', async () => {
-                    socket.emit('occupancy-update', {
-                        occupied: state.occupied
+                    socket.on('occupancy-log-get', async () => {
+                        socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({ timestamp: { $gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF } }).sort({ timestamp: 1 }).exec());
                     });
-                });
 
-                socket.emit('authenticate-reply', {
-                    status: 'success'
-                });
-                socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({ timestamp: { $gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF } }).sort({ timestamp: 1 }).exec());
-                socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
-                logAction('Authentication succeeded.', socket);
+                    socket.on('action-log-get', async () => {
+                        socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
+                    });
+
+                    socket.on('occupancy-check', async () => {
+                        socket.emit('occupancy-update', {
+                            occupied: state.occupied
+                        });
+                    });
+
+                    socket.emit('authenticate-reply', {
+                        status: 'success'
+                    });
+                    socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({ timestamp: { $gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF } }).sort({ timestamp: 1 }).exec());
+                    socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
+                    logAction('Authentication succeeded.', socket);
+
+                } else {
+                    socket.emit('authenticate-reply', {
+                        status: 'failed'
+                    });
+                    logAction('Authentication failed.', socket);
+                }
             } else {
                 socket.emit('authenticate-reply', {
                     status: 'failed'

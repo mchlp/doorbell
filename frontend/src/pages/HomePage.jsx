@@ -40,6 +40,8 @@ class HomePage extends Component {
     constructor(props) {
         super(props);
         this.state = {
+            user: localStorage.getItem('user'),
+            perms: localStorage.getItem('perms'),
             connected: false,
             loggedin: false,
             occupied: false,
@@ -54,6 +56,10 @@ class HomePage extends Component {
             occupancyBar: {
                 startAtNow: true,
                 startTime: null
+            },
+            loading: {
+                logout: false,
+                admin: false
             }
         };
 
@@ -119,22 +125,69 @@ class HomePage extends Component {
             this.props.socket.on('authenticate-reply', (data) => {
                 if (data.status === 'failed') {
                     localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('perms');
                     window.location.reload();
                 }
             });
             this.props.socket.emit('authenticate', {
-                token
+                token,
+                type: 'user'
             });
         }
         this.props.socket.emit('occupancy-check');
     }
 
     logout = async () => {
-        await axios.post('/api/logout', {
-            token: localStorage.getItem('token')
+        this.setState(prevState => {
+            return {
+                loading: {
+                    ...prevState.loading,
+                    logout: true
+                }
+            };
+        }, async () => {
+            await axios.post('/api/logout', {
+                token: localStorage.getItem('token')
+            });
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('perms');
+            this.setState(prevState => {
+                return {
+                    loading: {
+                        ...prevState.loading,
+                        logout: false
+                    }
+                };
+            });
+            window.location.reload();
         });
-        localStorage.removeItem('token');
-        window.location.reload();
+    }
+
+    gotoAdmin = async () => {
+        this.setState(prevState => {
+            return {
+                loading: {
+                    ...prevState.loading,
+                    admin: true
+                }
+            };
+        }, async () => {
+            const res = await axios.post('/api/elevate');
+            localStorage.setItem('token', res.data.token);
+            localStorage.setItem('user', res.data.username);
+            localStorage.setItem('perms', res.data.perms);
+            this.setState(prevState => {
+                return {
+                    loading: {
+                        ...prevState.loading,
+                        admin: false
+                    }
+                };
+            });
+            this.props.history.push('/admin');
+        });
     }
 
     handleSoundAction = async (e) => {
@@ -597,7 +650,7 @@ class HomePage extends Component {
                     <div className={'card text-white bg-dark mb-2'}>
                         <div className="card-body">
                             <h5 className="card-text text-center">
-                                Hello, you are logged in as <b>{localStorage.getItem('username')}</b>.
+                                Hello, you are logged in as <b>{this.state.user}</b>.
                             </h5>
                         </div>
                     </div>
@@ -713,8 +766,32 @@ class HomePage extends Component {
                             }
                         </div>
                     </div>
+                    {
+                        this.state.perms.includes('admin') ?
+                            <button className="btn btn-info btn-lg btn-block mb-3" onClick={this.gotoAdmin}>
+                                {this.state.loading.admin ?
+                                    <div>
+                                        <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
+                                        Admin
+                                    </div> :
+                                    <div>
+                                        Admin
+                                    </div>
+                                }
+                            </button>
+                            :
+                            null
+                    }
                     <button className="btn btn-secondary btn-lg btn-block mb-3" onClick={this.logout}>
-                        Log Out
+                        {this.state.loading.logout ?
+                            <div>
+                                <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
+                                Log Out
+                            </div> :
+                            <div>
+                                Log Out
+                            </div>
+                        }
                     </button>
                 </div>
             </div>

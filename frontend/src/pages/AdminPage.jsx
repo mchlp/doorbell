@@ -35,11 +35,13 @@ const occupancyBarConfig = {
     }
 };
 
-class HomePage extends Component {
+class AdminPage extends Component {
 
     constructor(props) {
         super(props);
         this.state = {
+            user: localStorage.getItem('user'),
+            perms: localStorage.getItem('perms'),
             connected: false,
             loggedin: false,
             occupied: false,
@@ -101,6 +103,10 @@ class HomePage extends Component {
         setInterval(() => {
             this.props.socket.emit('occupancy-log-get');
         }, 1000 * 60);
+
+        if (this.state.user !== 'admin') {
+            this.logout();
+        }
     }
 
     startConnection = (stateSet) => {
@@ -114,11 +120,14 @@ class HomePage extends Component {
             this.props.socket.on('authenticate-reply', (data) => {
                 if (data.status === 'failed') {
                     localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('perms');
                     window.location.reload();
                 }
             });
             this.props.socket.emit('authenticate', {
-                token
+                token,
+                type: 'admin'
             });
         }
         this.props.socket.emit('occupancy-check');
@@ -129,6 +138,8 @@ class HomePage extends Component {
             token: localStorage.getItem('token')
         });
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('perms');
         window.location.reload();
     }
 
@@ -627,10 +638,10 @@ class HomePage extends Component {
     }
 }
 
-const wrappedHomePage = (props) => (
+const wrappedAdminPage = (props) => (
     <SocketContext.Consumer>
-        {socket => <HomePage {...props} socket={socket} />}
+        {socket => <AdminPage {...props} socket={socket} />}
     </SocketContext.Consumer>
 );
 
-export default wrappedHomePage;
+export default wrappedAdminPage;

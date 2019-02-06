@@ -20,7 +20,8 @@ const saltRounds = config['password-salt-rounds'];
 const newUser = {
     username: 'user',
     password: 'pass',
-    perms: 'some perms'
+    type: 'user',
+    perms: ['admin']
 };
 
 function bcryptHash(password, saltRounds) {
@@ -37,6 +38,7 @@ async function start() {
     await schema.User.create({
         username: newUser.username,
         password: newUser.hashedPassword,
+        type: newUser.type,
         perms: newUser.perms
     });
     console.log('User added.');

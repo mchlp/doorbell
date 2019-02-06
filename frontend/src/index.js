@@ -20,6 +20,8 @@ axios.interceptors.response.use((response) => {
     if (error.response.status) {
         if (error.response.status === 401) {
             localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('perms');
             window.location.reload();
         }
     }
