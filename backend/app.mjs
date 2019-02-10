@@ -72,7 +72,7 @@ async function start() {
                 message: 'unmute - automatic timeout'
             });
             io.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
-            io.sockets.in('admin').emit('mute-update', {
+            io.sockets.emit('mute-update', {
                 muteEnd: state.muteEnd
             });
         }
