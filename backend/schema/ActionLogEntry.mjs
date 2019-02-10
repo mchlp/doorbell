@@ -7,7 +7,7 @@ const ActionLogEntry = new Schema({
     type: {
         type: String,
         required: true,
-        enum: ['broadcast', 'knock', 'doorbell', 'alarm'],
+        enum: ['broadcast', 'knock', 'doorbell', 'alarm', 'mute-change'],
     },
     message: {
         type: String,

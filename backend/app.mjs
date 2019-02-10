@@ -53,7 +53,7 @@ async function start() {
     }
 
     // set interval to update occupancy status
-    setInterval(() => {
+    setInterval(async () => {
         const curStatus = Date.now() <= state.lastMotion + (config['motion-delay-sec'] * 1000);
         if (curStatus != state.occupied) {
             state.occupied = curStatus;
@@ -63,8 +63,15 @@ async function start() {
             updateMotionLog(curStatus);
         }
 
-        if (state.muteEnd < Date.now()) {
+        if (state.muteEnd && state.muteEnd < Date.now()) {
             state.muteEnd = null;
+            await schema.ActionLogEntry.create({
+                timestamp: Date.now(),
+                type: 'mute-change',
+                status: 'success',
+                message: 'unmute - automatic timeout'
+            });
+            io.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
             io.sockets.in('admin').emit('mute-update', {
                 muteEnd: state.muteEnd
             });
@@ -143,7 +150,19 @@ async function start() {
     async function startSoundAction(actionFunc, actionName, message, socket) {
         logAction(actionName + ' attempted.', socket);
         let result = false;
-        if (!state.inUse) {
+        if (state.inUse) {
+            socket.emit(actionName + '-reply', {
+                'status': 'in-use'
+            });
+            logAction(actionName + ' failed, in use.', socket);
+            result = 'In Use';
+        } else if (state.muteEnd) {
+            socket.emit(actionName + '-reply', {
+                'status': 'muted'
+            });
+            logAction(actionName + ' failed, muted.', socket);
+            result = 'Muted';
+        } else {
             state.inUse = actionName;
             try {
                 await actionFunc();
@@ -156,18 +175,12 @@ async function start() {
             socket.emit(actionName + '-reply', {
                 'status': 'success'
             });
-            result = true;
-        } else {
-            socket.emit(actionName + '-reply', {
-                'status': 'in-use'
-            });
-            logAction(actionName + ' failed, in use.', socket);
-            result = false;
+            result = 'Completed';
         }
         await schema.ActionLogEntry.create({
             timestamp: Date.now(),
             type: actionName,
-            status: result ? 'Completed' : 'Failed',
+            status: result,
             message
         });
         io.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
@@ -320,7 +333,28 @@ async function start() {
 
                         socket.on('mute', async () => {
                             state.muteEnd = Date.now() + (config['mute-length-sec'] * 1000);
-                            io.sockets.in('admin').emit('mute-update', {
+                            await schema.ActionLogEntry.create({
+                                timestamp: Date.now(),
+                                type: 'mute-change',
+                                status: 'success',
+                                message: 'muted'
+                            });
+                            io.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
+                            io.emit('mute-update', {
+                                muteEnd: state.muteEnd
+                            });
+                        });
+
+                        socket.on('unmute', async () => {
+                            state.muteEnd = null;
+                            await schema.ActionLogEntry.create({
+                                timestamp: Date.now(),
+                                type: 'mute-change',
+                                status: 'success',
+                                message: 'unmute - manual'
+                            });
+                            io.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
+                            io.emit('mute-update', {
                                 muteEnd: state.muteEnd
                             });
                         });
@@ -345,6 +379,9 @@ async function start() {
                     });
                     socket.emit('occupancy-log-reply', await schema.MotionLogEntry.find({ timestamp: { $gt: Date.now() - SEND_TO_FRONTEND_DATE_CUTOFF } }).sort({ timestamp: 1 }).exec());
                     socket.emit('action-log-reply', await schema.ActionLogEntry.find().sort({ timestamp: -1 }).limit(10).exec());
+                    socket.emit('mute-update', {
+                        muteEnd: state.muteEnd
+                    });
                     logAction('Authentication succeeded.', socket);
 
                 } else {

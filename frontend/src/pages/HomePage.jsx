@@ -85,6 +85,13 @@ class HomePage extends Component {
             this.props.socket.emit('occupancy-log-get');
         });
 
+        this.props.socket.on('mute-update', (data) => {
+            this.setState({
+                muteEnd: data.muteEnd
+            });
+            this.updateMuteLeftString();
+        });
+
         this.props.socket.on('occupancy-log-reply', (data) => {
             if (this.state.occupancyBar.startAtNow) {
                 this.setState((prevState) => {
@@ -113,6 +120,10 @@ class HomePage extends Component {
             this.props.socket.emit('occupancy-log-get');
         }, 1000 * 60);
 
+        setInterval(() => {
+            this.updateMuteLeftString();
+        }, 1000);
+
         if (this.state.user === 'admin') {
             this.props.history.push('/admin');
         }
@@ -140,6 +151,15 @@ class HomePage extends Component {
             });
         }
         this.props.socket.emit('occupancy-check');
+    }
+
+    updateMuteLeftString = () => {
+        if (this.state.muteEnd) {
+            const secondsLeft = (this.state.muteEnd - Date.now()) / 1000;
+            this.setState({
+                muteEndStr: Math.floor(secondsLeft / 60) + ':' + (Math.floor(secondsLeft % 60) < 10 ? '0' : '') + Math.floor(secondsLeft % 60)
+            });
+        }
     }
 
     logout = async () => {
@@ -692,7 +712,22 @@ class HomePage extends Component {
                             </h5>
                         </div>
                     </div>
-                    <button className="btn btn-secondary btn-lg btn-block" type='doorbell' onClick={this.handleSoundAction} disabled={this.state.doorbell || !this.state.connected}>
+                    <div className={'card text-white mb-2' + (this.state.muteEnd ? ' bg-danger' : ' bg-success')}>
+                        <div className="card-body">
+                            <h5 className="card-text text-center">
+                                {this.state.muteEnd ?
+                                    <div>
+                                        <b>Sound:</b> Muted - {this.state.muteEndStr}
+                                    </div>
+                                    :
+                                    <div>
+                                        <b>Sound:</b> Working
+                                    </div>
+                                }
+                            </h5>
+                        </div>
+                    </div>
+                    <button className="btn btn-secondary btn-lg btn-block" type='doorbell' onClick={this.handleSoundAction} disabled={this.state.muteEnd || this.state.doorbell || !this.state.connected}>
                         {this.state.doorbell ?
                             <div>
                                 <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
@@ -703,7 +738,7 @@ class HomePage extends Component {
                             </div>
                         }
                     </button>
-                    <button className="btn btn-secondary btn-lg btn-block" type='knock' onClick={this.handleSoundAction} disabled={this.state.knock || !this.state.connected}>
+                    <button className="btn btn-secondary btn-lg btn-block" type='knock' onClick={this.handleSoundAction} disabled={this.state.muteEnd || this.state.knock || !this.state.connected}>
                         {this.state.knock ?
                             <div>
                                 <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
@@ -716,9 +751,9 @@ class HomePage extends Component {
                     </button>
                     <form onSubmit={this.handleBroadcast}>
                         <div className="input-group my-3">
-                            <input type="text" id="broadcast-message" className="form-control" placeholder="Enter message to broadcast" required disabled={!this.state.connected} />
+                            <input type="text" id="broadcast-message" className="form-control" placeholder="Enter message to broadcast" required disabled={this.state.muteEnd || this.state.broadcast || !this.state.connected} />
                             <div className="input-group-append">
-                                <button className="btn btn-secondary" type="submit" disabled={this.state.broadcast || !this.state.connected}>
+                                <button className="btn btn-secondary" type="submit" disabled={this.state.muteEnd || this.state.broadcast || !this.state.connected}>
                                     {this.state.broadcast ?
                                         <div>
                                             <i className='fa fa-circle-o-notch fa-spin mr-2'></i>
@@ -732,7 +767,7 @@ class HomePage extends Component {
                             </div>
                         </div>
                     </form>
-                    <button className="btn btn-danger btn-lg btn-block" type='alarm' onClick={this.handleSoundAction} disabled={this.state.alarm || !this.state.connected}>
+                    <button className="btn btn-danger btn-lg btn-block" type='alarm' onClick={this.handleSoundAction} disabled={this.state.muteEnd || this.state.alarm || !this.state.connected}>
                         {this.state.alarm ?
                             <div>
                                 <i className='fa fa-circle-o-notch fa-spin mr-2'></i>

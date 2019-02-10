@@ -55,15 +55,6 @@ class AdminPage extends Component {
             },
         };
 
-        if (this.props.socket.connected) {
-            this.startConnection(false);
-            this.state.connected = true;
-        } else {
-            this.props.socket.on('connect', () => {
-                this.startConnection(true);
-            });
-        }
-
         this.props.socket.on('disconnect', () => {
             this.setState({
                 connected: false
@@ -81,6 +72,7 @@ class AdminPage extends Component {
             this.setState({
                 muteEnd: data.muteEnd
             });
+            this.updateMuteLeftString();
         });
 
         this.props.socket.on('occupancy-log-reply', (data) => {
@@ -111,8 +103,21 @@ class AdminPage extends Component {
             this.props.socket.emit('occupancy-log-get');
         }, 1000 * 60);
 
+        setInterval(() => {
+            this.updateMuteLeftString();
+        }, 1000);
+
         if (this.state.user !== 'admin') {
             this.logout();
+        }
+
+        if (this.props.socket.connected) {
+            this.startConnection(false);
+            this.state.connected = true;
+        } else {
+            this.props.socket.on('connect', () => {
+                this.startConnection(true);
+            });
         }
     }
 
@@ -140,8 +145,21 @@ class AdminPage extends Component {
         this.props.socket.emit('occupancy-check');
     }
 
-    mute = async () => {
+    updateMuteLeftString = () => {
+        if (this.state.muteEnd) {
+            const secondsLeft = (this.state.muteEnd - Date.now()) / 1000;
+            this.setState({
+                muteEndStr: Math.floor(secondsLeft / 60) + ':' + (Math.floor(secondsLeft % 60) < 10 ? '0' : '') + Math.floor(secondsLeft % 60)
+            });
+        }
+    }
+
+    mute = () => {
         this.props.socket.emit('mute');
+    }
+
+    unmute = () => {
+        this.props.socket.emit('unmute');
     }
 
     logout = async () => {
@@ -613,9 +631,30 @@ class AdminPage extends Component {
                             </h5>
                         </div>
                     </div>
-                    <button className="btn btn-danger btn-lg btn-block" type='doorbell' onClick={this.mute}>
-                        Mute {this.state.muteEnd}
-                    </button>
+                    <div style={{ display: 'flex' }}>
+                        <button className="btn btn-danger btn-lg btn-block mr-1" onClick={this.mute}>
+                            {
+                                this.state.muteEnd ?
+                                    <div>
+                                        Mute - {this.state.muteEndStr}
+                                    </div>
+                                    :
+                                    <div>
+                                        Mute
+                                    </div>
+                            }
+                        </button>
+                        {
+                            this.state.muteEnd ?
+                                <button className="btn btn-success btn-lg btn-block mt-0" onClick={this.unmute}>
+                                    <div>
+                                        Unmute
+                                    </div>
+                                </button>
+                                :
+                                null
+                        }
+                    </div>
                     <div className="card text-black bg-light my-3">
                         <div className="card-header">
                             <h5 className='mb-0'>
