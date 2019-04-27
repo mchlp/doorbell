@@ -10,6 +10,7 @@ import socketIO from 'socket.io';
 import mongoose from 'mongoose';
 import * as schema from './schema/index.mjs';
 import bcrypt from 'bcrypt';
+import path from 'path';
 
 const exec = util.promisify(childProcess.exec);
 
@@ -273,6 +274,8 @@ async function start() {
             });
         }
     });
+
+    app.use('/files', express.static(path.join(__dirname, 'files')));
 
     app.use((req, res, next) => {
         res.status(404);
