@@ -205,8 +205,6 @@ async function start() {
     app.use(bodyParser.urlencoded({ extended: false }));
     app.use(bodyParser.json());
 
-    app.use('/api/files', express.static('../files'));
-
     app.post('/api/login', async (req, res, next) => {
         const user = await schema.User.findOne({ username: req.body.username }).exec();
         if (user && user.type === 'user') {
