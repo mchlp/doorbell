@@ -31,7 +31,7 @@ const server = http.createServer(app);
 const io = socketIO(server);
 const state = {};
 
-const SEND_TO_FRONTEND_DATE_CUTOFF = 1000 * 60 * 60 * 24 * 7;
+const SEND_TO_FRONTEND_DATE_CUTOFF = 1000 * 60 * 60 * 24 * 7 * 4;
 
 async function start() {
 
