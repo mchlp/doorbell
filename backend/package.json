@@ -15,7 +15,7 @@
     "crypto": "^1.0.1",
     "express": "^4.16.4",
     "mongoose": "^5.4.9",
-    "socket.io": "^2.2.0"
+    "socket.io": "^2.4.0"
   },
   "devDependencies": {
     "eslint": "^5.12.0",
